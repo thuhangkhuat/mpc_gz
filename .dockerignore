@@ -1,0 +1,11 @@
+.git
+runs
+artifacts
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.env
+ros_ws/build
+ros_ws/install
+ros_ws/log
+hardware_mpc/.venv
