@@ -128,8 +128,8 @@ Use your configured world name if changed. Exit code 124 from `timeout` is
 expected. Sensor/telemetry rates follow simulation time and may be lower on wall
 time. Multiple shells can observe the same MAVROS instances.
 
-The GUI follows the pink target from 24 m above, offset 10 m along each horizontal
-axis. Press Escape in the 3D view to navigate freely; reopen it to restore follow.
+The GUI opens with a free camera; it does not follow the target. To follow a
+model, right-click it in the 3D view or entity tree and choose Follow.
 
 ## Logs and evaluation
 
