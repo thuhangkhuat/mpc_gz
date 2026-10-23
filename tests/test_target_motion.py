@@ -55,3 +55,33 @@ def test_three_uav_route_preserves_waypoints_and_constant_speed():
     lengths = np.linalg.norm(np.diff(path, axis=0), axis=1)
     for a, b in zip(knots[:-1], knots[1:]):
         assert lengths[a:b].sum() / (times[b] - times[a]) == pytest.approx(scenario['tar_max_speed'])
+
+
+def test_single_waypoint_is_a_fixed_target():
+    path, times = target_route({'tar_max_speed': 0.6, 'target': {'waypoints': [[97, 34]]}}, {})
+    for elapsed in (0.0, 5.0, 1e6):
+        assert [np.interp(elapsed, times, path[:, i]) for i in (0, 1)] == [97, 34]
+    with pytest.raises(ValueError, match='target.waypoints'):
+        target_route({'tar_max_speed': 0.6, 'target': {'waypoints': [[97, 34]], 'speeds': [1]}}, {})
+
+
+def test_soccer_scenario_crosses_field_to_fixed_target():
+    scenario, settings, cfg = load_settings(PKG / 'scenarios/soccer_1uav.yaml',
+                                            PKG / 'config/controller_solo.yaml')
+    assert (scenario['xlim'], scenario['ylim']) == ([0, 105], [0, 68])
+    assert settings['target_mode'] == 'ground_truth'
+    start = np.asarray(scenario['starts'][0][:2])
+    goal = np.asarray(scenario['target']['waypoints'][0])
+    distance = np.linalg.norm(goal - start)
+    assert settings['arrival_timeout_sim'] > 2 * distance / cfg['VMAX']
+    obstacles = [(np.array([x + w / 2, y + h / 2]), np.hypot(w, h) / 2)
+                 for x, y, w, h in scenario['obstacles']['rects']]
+    obstacles += [(np.array([x, y]), r) for x, y, r in scenario['obstacles']['circles']]
+    for i, (c, r) in enumerate(obstacles):
+        assert min(np.linalg.norm(c - start), np.linalg.norm(c - goal)) - r >= 5
+        assert all(np.linalg.norm(c - d) - r - s >= 2.5 for d, s in obstacles[i + 1:])
+    # Obstacles block the straight crossing, so the planner has to avoid them.
+    t = np.linspace(0, 1, 2000)[:, None]
+    line = start + t * (goal - start)
+    assert any(np.min(np.linalg.norm(line - c, axis=1)) < r + cfg['INFLATE_RADIUS']
+               for c, r in obstacles)

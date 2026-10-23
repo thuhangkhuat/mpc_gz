@@ -1,0 +1,7 @@
+schema_version: 1
+world_name: solo_1uav
+uavs:
+  - name: uav1
+    instance: 0
+    sysid: 1
+    spawn: [5, 2, 0.195, 0, 0, 90]

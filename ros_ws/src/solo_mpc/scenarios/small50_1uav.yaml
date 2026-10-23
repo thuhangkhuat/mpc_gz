@@ -1,0 +1,69 @@
+# 50 m east-west x 30 m north-south obstacle field with irregular placement.
+# Single UAV variant of small50_3uav.yaml: same field, obstacles and target route.
+# Run: ./scripts/dev mpc --fleet /workspace/config/fleet_1uav.yaml \
+#        --scenario /workspace/ros_ws/src/solo_mpc/scenarios/small50_1uav.yaml \
+#        --settings /workspace/ros_ws/src/solo_mpc/config/controller_solo.yaml
+description: single UAV, 50 x 30 m scattered obstacle field with a winding target route
+xlim: [0, 50]
+ylim: [0, 30]
+viewing_radius: 1.5
+tar_max_speed: 0.6
+
+starts:                 # [x, y, z], metres
+  - [5, 2, 3]
+
+target:
+  waypoints:            # smooth turns, lateral sweeps, and changes in north/south travel
+    - [5, 3]
+    - [5, 6]
+    - [9, 11]
+    - [15, 9]
+    - [20, 14]
+    - [17, 21]
+    - [24, 25]
+    - [31, 21]
+    - [29, 15]
+    - [35, 10]
+    - [42, 13]
+    - [39, 21]
+    - [45, 26]
+    - [47, 23]
+
+obstacles:
+  rects:                # [left, bottom, width, height]
+    - [1.2, 9.5, 2.4, 4.0]
+    - [8.7, 2.0, 3.6, 2.2]
+    - [11.7, 15.3, 3.3, 2.0]
+    - [2.8, 21.6, 4.1, 2.6]
+    - [22.8, 5.0, 2.2, 3.6]
+    - [25.0, 11.6, 1.8, 2.8]
+    - [31.6, 25.6, 3.2, 2.0]
+    - [36.0, 3.7, 2.7, 3.2]
+    - [43.8, 6.0, 4.0, 2.3]
+    - [34.3, 17.0, 2.1, 2.7]
+    - [43.7, 16.7, 3.1, 2.1]
+    - [12.0, 25.0, 3.7, 2.5]
+  circles:              # [center_x, center_y, radius]
+    - [1.8, 17.4, 1.0]
+    - [10.0, 7.0, 1.0]
+    - [14.3, 4.5, 1.2]
+    - [21.5, 19.5, 1.1]
+    - [8.9, 27.5, 1.1]
+    - [23.4, 28.0, 0.8]
+    - [28.0, 3.0, 1.4]
+    - [30.2, 8.0, 0.9]
+    - [34.2, 13.8, 0.9]
+    - [38.4, 27.0, 1.0]
+    - [47.6, 12.4, 1.2]
+    - [48.2, 28.0, 0.8]
+
+params:
+  GRID_RESOLUTION: 0.15
+  LOCAL_PLAN_RADIUS: 10
+  UNKNOWN_POLICY: optimistic
+  UNKNOWN_COST: 1.5
+  TARGET_REPLAN_THRESHOLD: 0.6
+  PATH_DEVIATION_THRESHOLD: 1.0
+  TAR_SMOOTH_ENABLE: true
+  TAR_SPLINE_DS: 0.1
+  GRID_CELLS: []  # no followers

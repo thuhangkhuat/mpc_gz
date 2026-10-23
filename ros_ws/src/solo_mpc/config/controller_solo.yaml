@@ -1,0 +1,79 @@
+# Restart the mission after changing geometry, solver or dynamics parameters.
+# Same as controller.yaml, with motion limits taken from the 3DR Solo frame
+# parameters (ArduPilot Tools/Frame_params/Solo_Copter-3.6_GreenCube.param).
+# The Gazebo airframe is still Iris (similar size and mass to a Solo).
+flight_altitude: 3.0
+obstacle_height: 5.0
+target_height: 0.05
+camera_width: 160
+camera_height: 160
+camera_rate: 8.0
+camera_hfov: 0.927295218  # 53.13 degrees: 3 m footprint at 3 m over the ground
+lidar_rate: 10.0
+lidar_samples: 360
+lidar_noise_stddev: 0.01
+control_period: 0.1
+diagnostic_capture_cycles: 128  # bounded optimizer replay records per UAV in run directory
+controller_execution: parallel  # one persistent worker process per UAV; sequential for comparison
+controller_worker_timeout_wall: 1.0
+controller_worker_startup_timeout_wall: 30.0
+publish_rate: 20.0
+state_timeout_sim: 0.5
+sensor_timeout_sim: 0.5
+target_timeout_sim: 1.5
+target_search_timeout_sim: 8.0
+planner_failure_timeout_sim: 3.0
+arrival_fleet_radius: 6.0
+arrival_timeout_sim: 180.0  # fixed target is at its goal from the start; allows the ~90 m crossing
+command_timeout_sim: 0.4
+command_timeout_wall: 3.0
+pose_timeout_wall: 3.0
+fcu_timeout_sim: 2.5
+fcu_timeout_wall: 60.0  # heartbeat follows slow SITL; sim-time expiry remains 2.5 s
+target_mode: ground_truth  # exact fixed target position; no camera detection
+altitude_kp: 1.0
+vertical_speed_limit: 0.5
+calibration_samples: 10
+world_from_local_yaw: 0.0  # Gazebo XYZ->NED and MAVROS NED->ENU cancel in this world
+frame_history_tolerance: 0.3
+scan_height_tolerance: 1.0   # tall extruded obstacles; reject larger tilt/height shifts
+marker_min_pixels: 4
+sitl_params:  # FCU limits loaded on top of copter.parm and gazebo-iris.parm
+  ANGLE_MAX: 2000
+  WPNAV_SPEED: 300
+  WPNAV_ACCEL: 250
+  WPNAV_SPEED_UP: 320
+  WPNAV_SPEED_DN: 240
+  LOIT_SPEED: 1300
+  LOIT_ACC_MAX: 200
+  ATC_ACCEL_R_MAX: 36000
+  ATC_ACCEL_P_MAX: 36000
+  ATC_ACCEL_Y_MAX: 7000
+params:
+  ROBOT_RADIUS: 0.36
+  INFLATE_MARGIN: 0.15
+  UAV_SAFE_DISTANCE: 1.0
+  COLLISION_AVOID_DISTANCE: 1.5
+  VMAX: 3.0  # Solo WPNAV_SPEED 300 cm/s
+  UMAX: 2.5  # WPNAV_ACCEL 250 cm/s² (Solo leaves the default); below g*tan(ANGLE_MAX 20°)
+  ACCEL_TAU: 0.2
+  SENSING_RADIUS: 3.0
+  LOCAL_SEARCH: jps  # uniform step costs; dijkstra applies UNKNOWN_COST
+  CONTINGENCY: true
+  BACKUP_HORIZON: 25  # backup ends at rest after 2.5 s
+  W_backup: 0.1
+  TERMINAL_STOP: false  # comparison mode; nominal plan may end with nonzero speed
+  CORRIDOR_BOX: 1.5
+  CORRIDOR_MAX_FACES: 16  # grows automatically if a measured corridor needs more
+  GOAL_CLAMP_MARGIN: 0.6
+  SLOT_MIN_RATIO: 0.3
+  SLOT_LOOKAHEAD_TIME: 2.0
+  IPOPT_OPTIONS:
+    ipopt.max_iter: 500
+    # Runtime CPU cap; offline parity uses the reference iteration-only options.
+    ipopt.max_cpu_time: 0.2  # contingency branch needs more than the former 60 ms budget
+    ipopt.print_level: 0
+    ipopt.tol: 0.0001
+    ipopt.acceptable_tol: 0.01
+    ipopt.acceptable_iter: 15
+    print_time: 0

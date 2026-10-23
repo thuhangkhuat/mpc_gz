@@ -1,0 +1,74 @@
+# Soccer-pitch-sized field (105 m along X, 68 m along Y), one UAV, fixed target.
+# Obstacles are small: poles (0.15 m radius), masts (0.3 m), narrow frames and
+# 1 m boxes, extruded to the controller's obstacle_height. Layout generated once
+# with a fixed seed: at least 2.5 m between obstacles, 5 m clear of start and
+# target. The UAV crosses the field from one end to the target at the other.
+# Run: ./scripts/dev mpc --fleet /workspace/config/fleet_1uav.yaml \
+#        --scenario /workspace/ros_ws/src/solo_mpc/scenarios/soccer_1uav.yaml \
+#        --settings /workspace/ros_ws/src/solo_mpc/config/controller_solo.yaml
+description: single UAV to a fixed target across a 105 x 68 m field of small obstacles
+world_name: mpc_soccer
+xlim: [0, 105]
+ylim: [0, 68]
+viewing_radius: 1.5
+tar_max_speed: 0.6      # controller's assumed target speed bound; the target does not move
+
+starts:                 # [x, y, z], metres
+  - [8, 34, 3]
+
+target:
+  waypoints:            # a single waypoint keeps the target fixed
+    - [97, 34]
+
+obstacles:
+  rects:                # [left, bottom, width, height]
+    - [53.1, 32.7, 1.0, 1.0]
+    - [53.5, 49.4, 1.0, 1.0]
+    - [61.9, 42.7, 0.4, 1.6]
+  circles:              # [center_x, center_y, radius]
+    - [14.3, 41.9, 0.15]
+    - [18.6, 31.3, 0.15]
+    - [21.0, 35.0, 0.15]
+    - [21.4, 45.2, 0.15]
+    - [25.6, 41.6, 0.15]
+    - [25.6, 60.0, 0.15]
+    - [28.8, 44.3, 0.30]
+    - [33.1, 22.3, 0.15]
+    - [34.9, 61.1, 0.15]
+    - [37.1, 43.0, 0.15]
+    - [37.3, 28.7, 0.15]
+    - [42.0, 14.8, 0.15]
+    - [42.7, 22.7, 0.15]
+    - [46.3, 52.9, 0.15]
+    - [46.9, 56.7, 0.15]
+    - [47.9, 27.7, 0.15]
+    - [48.3, 34.1, 0.30]
+    - [54.3, 56.4, 0.15]
+    - [57.9, 31.0, 0.15]
+    - [61.2, 23.1, 0.15]
+    - [62.4, 51.6, 0.15]
+    - [62.5, 34.3, 0.15]
+    - [63.1, 38.2, 0.15]
+    - [67.3, 26.8, 0.15]
+    - [69.9, 17.6, 0.15]
+    - [72.0, 52.6, 0.15]
+    - [77.2, 41.1, 0.15]
+    - [79.2, 37.4, 0.30]
+    - [81.1, 30.7, 0.30]
+    - [83.0, 48.6, 0.30]
+    - [83.6, 35.7, 0.15]
+    - [85.1, 8.1, 0.15]
+    - [87.0, 38.4, 0.15]
+    - [88.5, 43.5, 0.15]
+    - [89.4, 36.2, 0.30]
+    - [90.1, 27.2, 0.15]
+    - [90.7, 41.0, 0.30]
+
+params:
+  GRID_RESOLUTION: 0.15
+  LOCAL_PLAN_RADIUS: 10
+  UNKNOWN_POLICY: optimistic
+  UNKNOWN_COST: 1.5
+  TARGET_REPLAN_THRESHOLD: 0.6
+  PATH_DEVIATION_THRESHOLD: 1.0
+  GRID_CELLS: []  # no followers

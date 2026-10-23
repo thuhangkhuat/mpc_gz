@@ -65,6 +65,37 @@ MPC launch takes the UAV positions from the scenario, so no fleet file
 changes are needed. The row defines the initial formation; the controller can
 adjust UAV positions while following the target and avoiding obstacles.
 
+## Single Solo-like UAV, fixed target
+
+[soccer_1uav.yaml](../ros_ws/src/solo_mpc/scenarios/soccer_1uav.yaml) uses a
+soccer-pitch-sized 105 × 68 m field with 40 small obstacles: poles (0.15 m
+radius), masts (0.3 m), narrow frames and 1 m boxes, at least 2.5 m apart. One
+UAV starts at `[8, 34]` and flies to a fixed target at `[97, 34]`; several
+obstacles block the straight line. Select it with
+[fleet_1uav.yaml](../config/fleet_1uav.yaml) and
+[controller_solo.yaml](../ros_ws/src/solo_mpc/config/controller_solo.yaml)
+(the checked-out `.env` already does):
+
+```bash
+./scripts/dev mpc \
+  --fleet /workspace/config/fleet_1uav.yaml \
+  --scenario /workspace/ros_ws/src/solo_mpc/scenarios/soccer_1uav.yaml \
+  --settings /workspace/ros_ws/src/solo_mpc/config/controller_solo.yaml
+```
+
+A single `target.waypoints` entry makes the target stationary. Because it is
+at its goal from the start, `arrival_timeout_sim` bounds the whole crossing and
+is 180 s in `controller_solo.yaml`. The mission completes once the UAV is within
+`viewing_radius` of the target.
+
+`controller_solo.yaml` uses `target_mode: ground_truth` (no camera detection),
+`VMAX` 3 m/s and `UMAX` 2.5 m/s², and loads 3DR Solo FCU limits through
+`sitl_params` (`ANGLE_MAX` 20°, `WPNAV_SPEED` 3 m/s, `WPNAV_ACCEL` 2.5 m/s²,
+Solo attitude acceleration limits), taken from ArduPilot's
+`Solo_Copter-3.6_GreenCube.param`. The Gazebo airframe remains Iris.
+[small50_1uav.yaml](../ros_ws/src/solo_mpc/scenarios/small50_1uav.yaml) is the
+original moving-target field with the same single UAV.
+
 ## Three-UAV fleet
 
 The supplied simulation uses three fleet entries and three finite XYZ rows in
