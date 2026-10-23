@@ -1,0 +1,8 @@
+numpy==1.26.4
+scipy==1.13.1
+casadi==3.7.2
+numba==0.61.2
+pycddlib==2.1.8.post1
+pyny3d==0.1.1
+pydecomp==2.0.0
+PyYAML==6.0.3

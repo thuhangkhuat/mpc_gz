@@ -1,0 +1,12 @@
+{
+  "ros_base": "ros:jazzy-ros-base-noble@sha256:066420e07f60aa18262f2479981def87ebcfcec42eefb0c0c57c4a46098348ca",
+  "uv_image": "ghcr.io/astral-sh/uv:0.12.17@sha256:10787c682e4184e4f290de1171fd4703dc63de99221f10fe1c99002ce7fa9acc",
+  "ardupilot_commit": "ee14ff3822161368ec403700bf96d02b84def06c",
+  "ardupilot_tag": "Copter-4.5.3",
+  "gazebo_plugin_commit": "082a0fe231f6e63bc8d1598f1cba461d9e2ea7f5",
+  "build_python": "3.11.16",
+  "ros_distro": "jazzy",
+  "gazebo_major": 8,
+  "mavros_upstream": "2.15.1",
+  "mavros_commit": "22ae5b7cc7cdb4cb9c2070a8213c72dae445a23e"
+}

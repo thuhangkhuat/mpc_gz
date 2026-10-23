@@ -1,0 +1,116 @@
+{
+  "source_repository": "https://github.com/phongna07/3dr-solo-simulation",
+  "source_commit": "80b1b69767a0de38d756204dc7c97206fdf1854c",
+  "source_package": "ros_ws/src/solo_mpc",
+  "package": "solo_mpc_hardware",
+  "changes": [
+    "Renamed ROS and Python packaging from solo_mpc to solo_mpc_hardware.",
+    "ros_utils.py: removed simulation world CLI option and optional solo_bringup startup-progress hook.",
+    "Selected controller, optional marker detector, and their local dependency closure; numerical/controller/perception logic unchanged.",
+    "Added a standalone launch file, installed single-UAV configuration examples, native dependency locks, and integration/sharing documentation.",
+    "Example configuration retains simulation-derived physical tuning; no preloaded obstacles, one UAV, diagnostic disk capture disabled.",
+    "SIGINT ownership: workers ignore terminal interrupts; the ROS wrapper finishes bounded cleanup despite a repeated launch SIGINT."
+  ],
+  "modules": {
+    "__init__.py": {
+      "source": "ros_ws/src/solo_mpc/solo_mpc/__init__.py",
+      "source_sha256": "f337ff79aad971fd85b6d1bec1d5ca614c99b0f134c64d815c5a10608ce537b0",
+      "initial_package_sha256": "f337ff79aad971fd85b6d1bec1d5ca614c99b0f134c64d815c5a10608ce537b0"
+    },
+    "controller_node.py": {
+      "source": "ros_ws/src/solo_mpc/solo_mpc/controller_node.py",
+      "source_sha256": "1a93cd81c659c0ef32cfd1f42c39367a363b4a0d765e33e9bc2b4520a94cc7cb",
+      "initial_package_sha256": "1a93cd81c659c0ef32cfd1f42c39367a363b4a0d765e33e9bc2b4520a94cc7cb"
+    },
+    "perception_node.py": {
+      "source": "ros_ws/src/solo_mpc/solo_mpc/perception_node.py",
+      "source_sha256": "49c615e3d33ce9f6e0e4eaa0bbe574be0e1c22e991a7417bfb4a1344985fcfec",
+      "initial_package_sha256": "49c615e3d33ce9f6e0e4eaa0bbe574be0e1c22e991a7417bfb4a1344985fcfec"
+    },
+    "ros_utils.py": {
+      "source": "ros_ws/src/solo_mpc/solo_mpc/ros_utils.py",
+      "source_sha256": "e125c94836d2ac06959354828a487ecd94e618af3e811a320f6add7f0a7b8e77",
+      "initial_package_sha256": "c91307adbed6aa75b101069a91ab367c44250742d93ef64f8efaabf96873a3c2"
+    },
+    "settings.py": {
+      "source": "ros_ws/src/solo_mpc/solo_mpc/settings.py",
+      "source_sha256": "68421579d72872d8142d3da8a2fe8c117a1125e879bf697dd536785f484db360",
+      "initial_package_sha256": "68421579d72872d8142d3da8a2fe8c117a1125e879bf697dd536785f484db360"
+    },
+    "core/__init__.py": {
+      "source": "ros_ws/src/solo_mpc/solo_mpc/core/__init__.py",
+      "source_sha256": "f337ff79aad971fd85b6d1bec1d5ca614c99b0f134c64d815c5a10608ce537b0",
+      "initial_package_sha256": "f337ff79aad971fd85b6d1bec1d5ca614c99b0f134c64d815c5a10608ce537b0"
+    },
+    "core/controller.py": {
+      "source": "ros_ws/src/solo_mpc/solo_mpc/core/controller.py",
+      "source_sha256": "014c1c48ed2a9107cb5d50436566225f4bca95d4a5542f518ca8a34ca3f28cd1",
+      "initial_package_sha256": "014c1c48ed2a9107cb5d50436566225f4bca95d4a5542f518ca8a34ca3f28cd1"
+    },
+    "core/coordination.py": {
+      "source": "ros_ws/src/solo_mpc/solo_mpc/core/coordination.py",
+      "source_sha256": "2d8eaede412e4975be1f5ec9f4c816b0f0ea6b5b3462c214fbee91adb840f183",
+      "initial_package_sha256": "2d8eaede412e4975be1f5ec9f4c816b0f0ea6b5b3462c214fbee91adb840f183"
+    },
+    "core/cycles.py": {
+      "source": "ros_ws/src/solo_mpc/solo_mpc/core/cycles.py",
+      "source_sha256": "c3c756ae7e21d35c040df55176cd9a1457f3a015fb5196a1a2f1ffd022ac09fd",
+      "initial_package_sha256": "c3c756ae7e21d35c040df55176cd9a1457f3a015fb5196a1a2f1ffd022ac09fd"
+    },
+    "core/diagnostics.py": {
+      "source": "ros_ws/src/solo_mpc/solo_mpc/core/diagnostics.py",
+      "source_sha256": "bdb909a680687aab2ca2ea7a0cc648636c5f1e8fc97cc427b9bf19c82f1c82f9",
+      "initial_package_sha256": "bdb909a680687aab2ca2ea7a0cc648636c5f1e8fc97cc427b9bf19c82f1c82f9"
+    },
+    "core/dynamics.py": {
+      "source": "ros_ws/src/solo_mpc/solo_mpc/core/dynamics.py",
+      "source_sha256": "26eefe78f3a9a0ca06499aa71599a72e02f219019b0d1992fdacebbee86b7d81",
+      "initial_package_sha256": "26eefe78f3a9a0ca06499aa71599a72e02f219019b0d1992fdacebbee86b7d81"
+    },
+    "core/geometry.py": {
+      "source": "ros_ws/src/solo_mpc/solo_mpc/core/geometry.py",
+      "source_sha256": "4c4b6928193243c02bbf5cebceed370568d0c696f20ab500d250e95d1700c509",
+      "initial_package_sha256": "4c4b6928193243c02bbf5cebceed370568d0c696f20ab500d250e95d1700c509"
+    },
+    "core/mapping.py": {
+      "source": "ros_ws/src/solo_mpc/solo_mpc/core/mapping.py",
+      "source_sha256": "4fdcb650aa87a5ad23d5ec8594d78ec61cfbe8b983e9092da5f24b3254a8aa85",
+      "initial_package_sha256": "4fdcb650aa87a5ad23d5ec8594d78ec61cfbe8b983e9092da5f24b3254a8aa85"
+    },
+    "core/mpc_problem.py": {
+      "source": "ros_ws/src/solo_mpc/solo_mpc/core/mpc_problem.py",
+      "source_sha256": "5b3446f07fadb0304dfcf698023a2492b8987b1ed0e8f30e42afc7f4f9f6aa25",
+      "initial_package_sha256": "5b3446f07fadb0304dfcf698023a2492b8987b1ed0e8f30e42afc7f4f9f6aa25"
+    },
+    "core/parallel_controller.py": {
+      "source": "ros_ws/src/solo_mpc/solo_mpc/core/parallel_controller.py",
+      "source_sha256": "42e9112357fea3cee515c2c97812b98b7b805e70657fefdedbcc6ae3ceaca605",
+      "initial_package_sha256": "5d9f0286d5bc7aa21627f0f4fb01314cee3db082283d0d561713aa3bec82a6d4"
+    },
+    "core/planner_grid.py": {
+      "source": "ros_ws/src/solo_mpc/solo_mpc/core/planner_grid.py",
+      "source_sha256": "c3fb85393801bcfa4fce1c1ad500401eeac0f97755d7351ed260aac4f86f9f08",
+      "initial_package_sha256": "c3fb85393801bcfa4fce1c1ad500401eeac0f97755d7351ed260aac4f86f9f08"
+    },
+    "core/planner_jps.py": {
+      "source": "ros_ws/src/solo_mpc/solo_mpc/core/planner_jps.py",
+      "source_sha256": "fcd8f6521ad81454904f356c55f878519ccc4b47f95f7e2cb18d901ee69214f3",
+      "initial_package_sha256": "fcd8f6521ad81454904f356c55f878519ccc4b47f95f7e2cb18d901ee69214f3"
+    },
+    "core/sensors.py": {
+      "source": "ros_ws/src/solo_mpc/solo_mpc/core/sensors.py",
+      "source_sha256": "db7846eb517f180c0fc5a5155e9736e4c35338f276244e63491d615254640410",
+      "initial_package_sha256": "db7846eb517f180c0fc5a5155e9736e4c35338f276244e63491d615254640410"
+    },
+    "core/target_motion.py": {
+      "source": "ros_ws/src/solo_mpc/solo_mpc/core/target_motion.py",
+      "source_sha256": "faf3e52a4a185cb9399c8bdac8339a27547992a487a5ff6ebdeac38397160cf7",
+      "initial_package_sha256": "faf3e52a4a185cb9399c8bdac8339a27547992a487a5ff6ebdeac38397160cf7"
+    },
+    "core/tracking.py": {
+      "source": "ros_ws/src/solo_mpc/solo_mpc/core/tracking.py",
+      "source_sha256": "4c055a3bc412b6329d51dbb0c95f4d0e5dfc84ee54e54c96a84e85436b16dae6",
+      "initial_package_sha256": "4c055a3bc412b6329d51dbb0c95f4d0e5dfc84ee54e54c96a84e85436b16dae6"
+    }
+  }
+}

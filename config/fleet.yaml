@@ -1,0 +1,15 @@
+schema_version: 1
+world_name: iris_3uav
+uavs:
+  - name: uav1
+    instance: 0
+    sysid: 1
+    spawn: [0, 0, 0.195, 0, 0, 90]
+  - name: uav2
+    instance: 1
+    sysid: 2
+    spawn: [6, 0, 0.195, 0, 0, 90]
+  - name: uav3
+    instance: 2
+    sysid: 3
+    spawn: [12, 0, 0.195, 0, 0, 90]

@@ -1,0 +1,8 @@
+# Zero means no wall-time limit. The limit begins when tracking is enabled.
+float64 seconds
+# Reject a request intended for a different simulation run.
+string run_dir
+---
+bool success
+string message
+string mission_id

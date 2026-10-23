@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+# Host-side acceptance test. All deployment files come from the image.
+set -euo pipefail
+TASK_IMAGE="${1:?Usage: release-smoke IMAGE sim|companion [EVIDENCE_DIRECTORY]}"
+TASK_SERVICE="${2:-sim}"
+[[ "$TASK_SERVICE" == sim || "$TASK_SERVICE" == companion ]] || exit 2
+TASK_EVIDENCE="${3:-$PWD/artifacts/release-smoke}"
+mkdir -p "$TASK_EVIDENCE"
+TASK_EVIDENCE="$(cd "$TASK_EVIDENCE" && pwd)"
+TASK_DEPLOY="$(mktemp -d)"
+TASK_PROJECT="solo-smoke-${RANDOM}"
+TASK_EXTRACT="$(docker create --entrypoint /bin/true "$TASK_IMAGE")"
+cleanup() {
+  "${dc[@]}" logs --no-color > "$TASK_EVIDENCE/compose.log" 2>&1 || true
+  "${dc[@]}" ps --all --format json > "$TASK_EVIDENCE/containers.json" 2>&1 || true
+  "${dc[@]}" down --timeout 20 >/dev/null 2>&1 || true
+  docker rm "$TASK_EXTRACT" >/dev/null 2>&1 || true
+  rm -rf "$TASK_DEPLOY"
+}
+dc=(docker compose --env-file /dev/null -p "$TASK_PROJECT" -f "$TASK_DEPLOY/compose.release.yaml" --profile hardware)
+trap cleanup EXIT
+export SIM_IMAGE="$TASK_IMAGE" COMPANION_IMAGE="$TASK_IMAGE"
+RELEASE_PLATFORM="$(docker image inspect "$TASK_IMAGE" --format '{{.Os}}/{{.Architecture}}')"
+export RELEASE_PLATFORM
+TASK_DAEMON_ARCH="$(docker version --format '{{.Server.Arch}}')"
+if [[ "$RELEASE_PLATFORM" != "linux/$TASK_DAEMON_ARCH" ]]; then
+  printf 'FAIL native smoke test requires daemon/image architecture match: %s vs %s\n' \
+    "$TASK_DAEMON_ARCH" "$RELEASE_PLATFORM" >&2
+  exit 1
+fi
+LOCAL_UID="$(id -u)"
+LOCAL_GID="$(id -g)"
+export LOCAL_UID LOCAL_GID
+export CONFIG_DIR="$TASK_DEPLOY/config" RUNS_DIR="$TASK_DEPLOY/runs" ARTIFACTS_DIR="$TASK_DEPLOY/artifacts"
+export LIBGL_ALWAYS_SOFTWARE=1 READINESS_TIMEOUT="${READINESS_TIMEOUT:-900}"
+export RUN_ID="smoke-${RANDOM}"
+# Ignore development .env/configuration on the invoking machine.
+unset FLEET_CONFIG MPC_SCENARIO MPC_SETTINGS PYTHONPATH COMPOSE_FILE COMPOSE_PROFILES
+unset MPC_RECORD_CAMERAS MPC_RECORD_OVERHEAD MPC_TARGET_MODE
+cd "$TASK_DEPLOY"
+docker cp "$TASK_EXTRACT:/opt/solo/deploy/compose.release.yaml" .
+docker cp "$TASK_EXTRACT:/workspace/config" config
+mkdir -p scripts/solo_bringup
+docker cp "$TASK_EXTRACT:/workspace/scripts/wait_ready.py" scripts/
+docker cp "$TASK_EXTRACT:/opt/solo_ws/install/solo_bringup/lib/python3.12/site-packages/solo_bringup/startup.py" scripts/solo_bringup/
+mkdir runs artifacts
+# No checkout, compiler, source workspaces or build Python may be present.
+# shellcheck disable=SC2016
+"${dc[@]}" run --rm --no-deps "$TASK_SERVICE" bash -c '
+  set -e
+  if touch /workspace/config/.write-probe 2>/dev/null; then
+    echo "FAIL configuration is writable"; exit 1
+  fi
+  if touch /workspace/.write-probe 2>/dev/null; then
+    echo "FAIL application filesystem is writable"; exit 1
+  fi
+  test ! -e /workspace/ros_ws
+  test ! -e /opt/solo_ws/src
+  test ! -e /opt/mavros_ws/src
+  test ! -e /opt/venvs/ardupilot
+  test ! -e /opt/python
+  ! command -v gcc
+  ! command -v cmake
+  ! command -v colcon
+  sha256sum -c /opt/solo/application.sha256 >/dev/null
+  sha256sum -c /opt/solo/geoid.sha256
+  python3 -c "import solo_mpc, solo_bringup, mavros_msgs, solo_mpc_interfaces; assert solo_mpc.__file__.startswith(\"/opt/solo_ws/install/\"); assert solo_bringup.__file__.startswith(\"/opt/solo_ws/install/\")"
+  test "$(ros2 pkg prefix mavros)" = /opt/mavros_ws/install/mavros
+  ros2 launch solo_bringup hardware.launch.py --show-args
+  python3 /workspace/scripts/doctor.py --container
+' > "$TASK_EVIDENCE/runtime-checks.log" 2>&1
+if [[ "$TASK_SERVICE" == sim ]]; then
+  # shellcheck disable=SC2016
+  "${dc[@]}" run --rm --no-deps sim bash -c '
+    set -e
+    for binary in /opt/ardupilot/build/sitl/bin/arducopter /opt/ardupilot_gazebo/build/*.so; do
+      ! ldd "$binary" | grep "not found"
+    done
+    python3 -c "import cv2, casadi, scipy, rclpy; from solo_mpc.core.mpc_problem import MPCProblem"
+    gz sim --versions
+    ros2 launch solo_mpc mpc.launch.py --show-args
+  ' >> "$TASK_EVIDENCE/runtime-checks.log" 2>&1
+  "${dc[@]}" up -d --no-build sim
+  TASK_CONTAINER="$("${dc[@]}" ps -q sim)"
+  python3 scripts/wait_ready.py --container "$TASK_CONTAINER" --run-id "$RUN_ID" \
+    --timeout "$READINESS_TIMEOUT" --all-processes > "$TASK_EVIDENCE/readiness.log" 2>&1
+  "${dc[@]}" exec -T sim /usr/local/bin/solo-entrypoint python3 \
+    /workspace/scripts/doctor.py --container --require-renderer > "$TASK_EVIDENCE/doctor.log" 2>&1
+  for topic in /uav1/camera/image_raw /uav1/scan; do
+    "${dc[@]}" exec -T sim /usr/local/bin/solo-entrypoint timeout 90s \
+      ros2 topic echo --once --qos-reliability best_effort --field header.stamp "$topic" >> "$TASK_EVIDENCE/sensors.log" 2>&1
+  done
+  # Copy evidence through Docker: independent of bind-mount behavior on the host.
+  docker cp "$TASK_CONTAINER:/workspace/runs/$RUN_ID/health.json" "$TASK_EVIDENCE/health.json"
+  docker cp "$TASK_CONTAINER:/workspace/runs/$RUN_ID/gazebo-home/.gz/rendering/ogre2.log" "$TASK_EVIDENCE/server-renderer.log"
+fi
+# Companion smoke validates MAVROS/library/config loading without connecting to
+# hardware. It does not claim FCU readiness or flight qualification.
+docker image inspect "$TASK_IMAGE" > "$TASK_EVIDENCE/image.json"
+printf 'PASS %s on %s; evidence: %s\n' "$TASK_SERVICE" "$RELEASE_PLATFORM" "$TASK_EVIDENCE"

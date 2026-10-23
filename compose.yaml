@@ -1,0 +1,66 @@
+services:
+  sim:
+    image: ${SIM_IMAGE:-solo-simulation:gd0}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: simulation_mpc
+      args:
+        BUILD_JOBS: ${BUILD_JOBS:-4}
+    init: true
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    shm_size: 1gb
+    environment:
+      SOLO_DEV: "1"
+      HOME: /tmp/solo-user-home
+      ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-42}
+      ROS_AUTOMATIC_DISCOVERY_RANGE: LOCALHOST
+      RMW_IMPLEMENTATION: rmw_cyclonedds_cpp
+      GZ_PARTITION: ${COMPOSE_PROJECT_NAME:-solo}
+      FLEET_CONFIG: ${FLEET_CONFIG:-/workspace/config/fleet.yaml}
+      READINESS_TIMEOUT: ${READINESS_TIMEOUT:-600}
+      LIBGL_ALWAYS_SOFTWARE: ${LIBGL_ALWAYS_SOFTWARE:-}
+      RUN_ID: ${RUN_ID:-}
+      MPC_SCENARIO: ${MPC_SCENARIO:-/workspace/ros_ws/src/solo_mpc/scenarios/small50_3uav.yaml}
+      MPC_SETTINGS: ${MPC_SETTINGS:-/workspace/ros_ws/src/solo_mpc/config/controller.yaml}
+      MPC_TARGET_MODE: ${MPC_TARGET_MODE:-}
+      MPC_RECORD_CAMERAS: ${MPC_RECORD_CAMERAS:-false}
+      MPC_RECORD_OVERHEAD: ${MPC_RECORD_OVERHEAD:-false}
+    volumes:
+      - .:/workspace
+    command: ["ros2", "launch", "/workspace/ros_ws/src/solo_mpc/launch/mpc.launch.py"]
+    stop_signal: SIGINT
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "python3", "/workspace/scripts/healthcheck.py"]
+      interval: 10s
+      timeout: 3s
+      start_period: 600s
+      retries: 3
+    logging:
+      driver: local
+      options:
+        max-size: 20m
+        max-file: "3"
+  companion:
+    profiles: [hardware]
+    image: ${COMPANION_IMAGE:-solo-companion:gd0}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: companion
+    init: true
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    network_mode: host
+    environment:
+      SOLO_DEV: "1"
+      HOME: /tmp/solo-user-home
+      ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-42}
+      RMW_IMPLEMENTATION: rmw_cyclonedds_cpp
+      ROS_AUTOMATIC_DISCOVERY_RANGE: ${HARDWARE_DISCOVERY_RANGE:-LOCALHOST}
+      HARDWARE_CONFIG: /workspace/config/hardware.yaml
+      RUNS_ROOT: /workspace/runs/hardware
+    volumes:
+      - .:/workspace
+    command: ["ros2", "launch", "/workspace/ros_ws/src/solo_bringup/launch/hardware.launch.py"]
+    stop_grace_period: 30s

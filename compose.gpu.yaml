@@ -1,0 +1,8 @@
+# Native Linux Intel/AMD DRM. Use only when /dev/dri exists on the Docker host.
+services:
+  sim:
+    devices:
+      - /dev/dri:/dev/dri
+    group_add:
+      - "${RENDER_GID:?Set RENDER_GID to the host render device group ID}"
+      - "${VIDEO_GID:?Set VIDEO_GID to the host DRM card group ID}"

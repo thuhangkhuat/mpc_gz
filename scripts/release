@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Copy this helper, compose.release.yaml and .env.release.example into a deployment
+# directory. It deliberately uses that directory, not a source checkout.
+set -euo pipefail
+TASK_RELEASE_FILE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)/compose.release.yaml"
+# An extracted deployment can keep the helper beside its Compose file.
+[[ -f "$TASK_RELEASE_FILE" ]] || TASK_RELEASE_FILE="$(dirname -- "${BASH_SOURCE[0]}")/compose.release.yaml"
+dc=(docker compose --project-directory "$PWD" -f "$TASK_RELEASE_FILE")
+# Compose resolves .env and reports missing variables before any mutation.
+"${dc[@]}" --profile hardware config --format json | python3 -c '
+import json, re, sys
+config = json.load(sys.stdin)
+for name, service in config["services"].items():
+    if not re.fullmatch(r"[^\s@]+@sha256:[a-f0-9]{64}", service["image"]):
+        sys.exit(f"{name}: release image must use a registry sha256 digest")
+    if service.get("platform") not in ("linux/amd64", "linux/arm64"):
+        sys.exit(f"{name}: choose linux/amd64 or linux/arm64")
+'
+case "${1:-help}" in
+  up) "${dc[@]}" up -d --no-build "${@:2}" ;;
+  pull|ps|logs|exec|stop|down|config) "${dc[@]}" "$@" ;;
+  doctor) python3 "$(dirname -- "${BASH_SOURCE[0]}")/doctor.py" --compose "${dc[@]:1}" ;;
+  companion) "${dc[@]}" --profile hardware up -d --no-build companion ;;
+  *) printf 'Usage: release {pull|up [sim]|ps|logs|exec|stop|down|config|doctor|companion}\n' ;;
+esac

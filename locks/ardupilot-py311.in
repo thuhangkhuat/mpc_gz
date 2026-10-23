@@ -1,0 +1,16 @@
+# Build tools only; never install these into ROS Python 3.12.
+setuptools==80.9.0
+wheel==0.45.1
+future==1.0.0
+lxml==6.1.3
+pymavlink==2.4.50
+pyserial==3.5
+pexpect==4.9.0
+empy==3.3.4
+ptyprocess==0.7.0
+dronecan==1.0.27
+numpy==1.26.4
+pyparsing==3.3.3
+psutil==7.2.2
+PyYAML==6.0.3
+intelhex==2.3.0

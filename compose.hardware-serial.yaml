@@ -1,0 +1,7 @@
+# Hardware opt-in. Replace host paths in .env with verified stable udev paths.
+services:
+  companion:
+    devices:
+      - ${FCU_DEVICE:-/dev/solo-fcu}:/dev/solo-fcu
+    group_add:
+      - "${DIALOUT_GID:?Set DIALOUT_GID to the verified FCU device group ID}"

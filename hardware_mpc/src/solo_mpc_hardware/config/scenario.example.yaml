@@ -1,0 +1,37 @@
+# Loader-compatible scaffold. No simulated target is started.
+description: Single-UAV configuration scaffold; adapt bounds and physical limits
+xlim:
+- 0
+- 50
+ylim:
+- 0
+- 30
+viewing_radius: 1.5
+tar_max_speed: 0.6
+starts:
+- - 5
+  - 2
+  - 3
+target:
+  waypoints:
+  - - 5
+    - 3
+  - - 5
+    - 6
+obstacles:
+  rects: []
+  circles: []
+params:
+  GRID_RESOLUTION: 0.15
+  LOCAL_PLAN_RADIUS: 10
+  UNKNOWN_POLICY: optimistic
+  UNKNOWN_COST: 1.5
+  TARGET_REPLAN_THRESHOLD: 0.6
+  PATH_DEVIATION_THRESHOLD: 1.0
+  TAR_SMOOTH_ENABLE: true
+  TAR_SPLINE_DS: 0.1
+  GRID_CELLS:
+  - - -1
+    - 0
+  - - 1
+    - 0

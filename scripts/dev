@@ -1,0 +1,149 @@
+#!/usr/bin/env bash
+set -euo pipefail
+TASK_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$TASK_ROOT"
+LOCAL_UID="$(id -u)"
+LOCAL_GID="$(id -g)"
+export LOCAL_UID LOCAL_GID
+dc=(docker compose)
+# Let Compose parse .env (including quoting/interpolation) rather than sourcing
+# it as shell code. Explicit -f options below would otherwise hide its selection.
+if [[ ! -v COMPOSE_FILE && -f .env ]]; then
+  TASK_COMPOSE_ENV="$(docker compose config --environment)"
+  while IFS= read -r TASK_ENV_LINE; do
+    case "$TASK_ENV_LINE" in
+      COMPOSE_FILE=*) export COMPOSE_FILE="${TASK_ENV_LINE#COMPOSE_FILE=}" ;;
+      COMPOSE_PATH_SEPARATOR=*) export COMPOSE_PATH_SEPARATOR="${TASK_ENV_LINE#COMPOSE_PATH_SEPARATOR=}" ;;
+    esac
+  done <<< "$TASK_COMPOSE_ENV"
+  unset TASK_COMPOSE_ENV TASK_ENV_LINE
+fi
+TASK_COMPOSE_SEPARATOR="${COMPOSE_PATH_SEPARATOR:-:}"
+if [[ -d /mnt/wslg && -d /tmp/.X11-unix ]]; then
+  if [[ -n "${COMPOSE_FILE:-}" ]]; then
+    [[ "$TASK_COMPOSE_SEPARATOR$COMPOSE_FILE$TASK_COMPOSE_SEPARATOR" == *"${TASK_COMPOSE_SEPARATOR}compose.wslg.yaml${TASK_COMPOSE_SEPARATOR}"* ]] || export COMPOSE_FILE="${COMPOSE_FILE}${TASK_COMPOSE_SEPARATOR}compose.wslg.yaml"
+  else
+    dc+=(-f compose.yaml -f compose.wslg.yaml)
+  fi
+elif [[ -n "${DISPLAY:-}" && -d /tmp/.X11-unix ]]; then
+  if [[ -n "${COMPOSE_FILE:-}" ]]; then
+    [[ "$TASK_COMPOSE_SEPARATOR$COMPOSE_FILE$TASK_COMPOSE_SEPARATOR" == *"${TASK_COMPOSE_SEPARATOR}compose.x11.yaml${TASK_COMPOSE_SEPARATOR}"* ]] || export COMPOSE_FILE="${COMPOSE_FILE}${TASK_COMPOSE_SEPARATOR}compose.x11.yaml"
+  else
+    dc+=(-f compose.yaml -f compose.x11.yaml)
+  fi
+elif [[ -z "${COMPOSE_FILE:-}" ]]; then
+  dc+=(-f compose.yaml)
+fi
+
+usage() {
+  cat <<'EOF'
+Usage: ./scripts/dev COMMAND [arguments]
+  doctor                         Host/Docker/config diagnostics
+  build [sim|companion]           Build an image (sim by default)
+  mpc [--gui] [--no-wait]         Start simulation and await initialization; no arming
+      [--fleet PATH] [--scenario PATH] [--settings PATH]  Container config paths
+      [--ground-truth-target]     Track exact timestamped target positions without camera detection
+      [--record-cameras]          Save each UAV's FOV video to runs/<run-id>/cameras/
+      [--record-overhead]         Save a 1920x1080 elevated view to runs/<run-id>/overhead/
+  mission run|start|stop|status|reset [--seconds WALL_SECONDS]
+  evaluate                       Evaluate the latest MPC flight log
+  wait [TIMEOUT]                 Wait for current simulation readiness
+  status                         Show Docker state and live readiness
+  logs                           Follow process logs (Ctrl+C only stops tail)
+  shell                          Bash inside simulation container
+  gui                            Gazebo GUI client; server keeps running on GUI exit
+  stop                           LAND, await disarm, then stop simulation
+  stop --force                   Stop processes immediately, no LAND
+  test                           Unit/config tests inside image
+  lock                           Export manifests and image ID to artifacts/
+  pull                           Pull images specified in .env (use registry digests)
+  companion                      Start hardware-profile MAVROS (requires config/devices)
+  companion-stop                 Stop companion processes; does NOT land hardware
+  help
+EOF
+}
+
+command="${1:-help}"
+[[ $# -eq 0 ]] || shift
+case "$command" in
+  doctor)
+    python3 scripts/doctor.py "$@" --compose "${dc[@]:1}"
+    ;;
+  build)
+    "${dc[@]}" --profile hardware build "${1:-sim}"
+    ;;
+  mpc)
+    show_gui=false
+    wait_ready=true
+    export MPC_RECORD_CAMERAS=false
+    export MPC_RECORD_OVERHEAD=false
+    RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)-${RANDOM}"
+    export RUN_ID
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --fleet) export FLEET_CONFIG="${2:?fleet path required}"; shift 2 ;;
+        --scenario) export MPC_SCENARIO="${2:?scenario path required}"; shift 2 ;;
+        --settings) export MPC_SETTINGS="${2:?settings path required}"; shift 2 ;;
+        --gui) show_gui=true; shift ;;
+        --no-wait) wait_ready=false; shift ;;
+        --ground-truth-target) export MPC_TARGET_MODE=ground_truth; shift ;;
+        --record-cameras) export MPC_RECORD_CAMERAS=true; shift ;;
+        --record-overhead) export MPC_RECORD_OVERHEAD=true; shift ;;
+        *) printf 'Unknown mpc argument: %s\n' "$1" >&2; exit 2 ;;
+      esac
+    done
+    if [[ -n "$("${dc[@]}" ps --status running -q sim)" ]]; then
+      printf 'Simulation already running. Use status/stop before starting another.\n' >&2
+      exit 1
+    fi
+    mkdir -p runs
+    "${dc[@]}" up -d --no-build sim
+    TASK_CONTAINER="$("${dc[@]}" ps -q sim)"
+    docker inspect "$TASK_CONTAINER" --format '{{json .Image}}' > "runs/${RUN_ID}.image-id.json"
+    if "$wait_ready"; then
+      TASK_TIMEOUT="$("${dc[@]}" exec -T sim printenv READINESS_TIMEOUT)"
+      python3 scripts/wait_ready.py --run-id "$RUN_ID" --container "$TASK_CONTAINER" --timeout "$TASK_TIMEOUT" --all-processes
+    fi
+    if "$show_gui"; then
+      printf 'Starting Gazebo GUI.\n'
+      "${dc[@]}" exec sim /usr/local/bin/solo-entrypoint python3 /workspace/scripts/gazebo_gui.py
+    fi
+    ;;
+  wait)
+    TASK_CONTAINER="$("${dc[@]}" ps -a -q sim)"
+    [[ -n "$TASK_CONTAINER" ]] || { printf 'No simulation container. Start with ./scripts/dev mpc.\n' >&2; exit 1; }
+    python3 scripts/wait_ready.py --container "$TASK_CONTAINER" --timeout "${1:-600}"
+    ;;
+  status)
+    "${dc[@]}" ps
+    "${dc[@]}" exec -T sim /usr/local/bin/solo-entrypoint python3 -c 'import json; from pathlib import Path; print(json.dumps(json.loads(Path("/workspace/runs/latest/health.json").read_text()), indent=2))'
+    ;;
+  logs) "${dc[@]}" logs -f --tail 100 sim ;;
+  shell) "${dc[@]}" exec sim /usr/local/bin/solo-entrypoint bash ;;
+  gui) "${dc[@]}" exec sim /usr/local/bin/solo-entrypoint python3 /workspace/scripts/gazebo_gui.py ;;
+  mission) "${dc[@]}" exec -T sim /usr/local/bin/solo-entrypoint ros2 run solo_mpc mission "$@" ;;
+  evaluate) "${dc[@]}" exec -T sim /usr/local/bin/solo-entrypoint ros2 run solo_mpc evaluate "$@" ;;
+  stop)
+    if [[ "${1:-}" != --force ]]; then
+      "${dc[@]}" exec -T sim /usr/local/bin/solo-entrypoint ros2 run solo_mpc mission stop
+    fi
+    "${dc[@]}" stop sim
+    ;;
+  test)
+    "${dc[@]}" run --rm --no-deps sim python3 -m pytest -q /workspace/tests
+    ;;
+  lock)
+    mkdir -p artifacts
+    "${dc[@]}" run --rm --no-deps sim bash -c \
+      'cp /opt/solo/*.lock /opt/solo/versions.json /opt/solo/geoid.sha256 /opt/solo/application.sha256 /workspace/artifacts/'
+    TASK_IMAGE="$("${dc[@]}" images -q sim | head -n 1)"
+    [[ -n "$TASK_IMAGE" ]] || { printf 'Start sim once before exporting its image identity.\n' >&2; exit 1; }
+    docker image inspect "$TASK_IMAGE" --format '{{json .}}' > artifacts/simulation-image.json
+    printf 'Exported artifacts/. Share a registry digest or docker save image for exact replication.\n'
+    ;;
+  pull) "${dc[@]}" --profile hardware pull ;;
+  companion) "${dc[@]}" --profile hardware up -d --no-build companion ;;
+  companion-stop) "${dc[@]}" --profile hardware stop companion ;;
+  help|-h|--help) usage ;;
+  *) usage >&2; exit 2 ;;
+esac

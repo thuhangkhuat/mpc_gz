@@ -1,0 +1,24 @@
+{
+  "source": "motion_planning_MPC",
+  "commit": "d7e5a791b2eefd0c3a55a2a5e444eec75dc709ae",
+  "sha256": {
+    "dynamics.py": "26eefe78f3a9a0ca06499aa71599a72e02f219019b0d1992fdacebbee86b7d81",
+    "mpc_problem.py": "e2c54cdb3ed427e983816909cc4301c49cb54fa4cfa3ba120ef56b886391f593",
+    "planner_grid.py": "9fe3a9782dd189e05624663687c6f6fd4e08927ad8c7750b0b4ea9c47b0d88d4",
+    "planner_jps.py": "41790ac67d684d0968addd5e13db95170d0ab7606d18418a548a46f877435be3",
+    "geometry.py": "4c4b6928193243c02bbf5cebceed370568d0c696f20ab500d250e95d1700c509",
+    "robot_jps.py": "5dd78fab4fd2c2c30d70ac84d06ce87c23db3ca00d78019aeec74787b6f5df82",
+    "config.py": "349f59bc3e26e0dcf88701212c58259bd8967c3ab53bd54f982b2a26b0117039"
+  },
+  "adaptations": [
+    "Relative imports and explicit grid defaults; numerical MPC, local JPS and dynamics retained. Planner warmup compiles both contiguous and noncontiguous windows before worker readiness.",
+    "Upstream robot_jps.py corridor seeding, corridor selection and stop-plan fallback adapted to measured ROS states and persistent parallel workers.",
+    "Fixed-altitude 3D flight, Iris physical limits, ROS perception, mapping, formation and supervision retained.",
+    "Corridor margin includes occupied-cell quantization and three standard deviations of the configured Gaussian LiDAR noise.",
+    "Stop-plan replay follows simulation time and requires measured position, velocity and acceleration agreement; failures remain visible to mission supervision.",
+    "2026-10-20: Restored upstream distance-gated per-UAV modes, leader/assignment hysteresis, predictive contraction, path carrots, moving slots, travel-time pursuit and target filter covariance; see docs/MPC_PARITY.md.",
+    "Coherent elapsed-time/reanchored six-state neighbor snapshots, responsive asynchronous ROS cycles, source-stamped expiry and measured-state fallback validation are intentional physical adaptations.",
+    "Runtime CPU/worker caps retained; direct read-only upstream parity uses iteration-only reference settings. Bounded complete optimizer input and backup-warm-start capture added for future replay."
+  ],
+  "inspected_on": "2026-10-20"
+}

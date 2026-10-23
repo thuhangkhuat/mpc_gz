@@ -1,0 +1,12 @@
+# Requires NVIDIA Container Toolkit (or supported Docker Desktop GPU setup).
+services:
+  sim:
+    environment:
+      NVIDIA_DRIVER_CAPABILITIES: graphics,utility,compute
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

@@ -1,0 +1,11 @@
+# WSLg GUI client attached to the SAME container as the simulation server.
+services:
+  sim:
+    environment:
+      DISPLAY: ${DISPLAY:-:0}
+      WAYLAND_DISPLAY: ${WAYLAND_DISPLAY:-wayland-0}
+      QT_X11_NO_MITSHM: "1"
+      PULSE_SERVER: unix:/mnt/wslg/PulseServer
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+      - /mnt/wslg:/mnt/wslg

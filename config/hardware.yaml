@@ -1,0 +1,16 @@
+# Template: edit only after checking the actual Solo link and SYSID.
+# No firmware flashing, arming, camera stream, or LiDAR starts automatically.
+schema_version: 1
+uavs:
+  - name: uav1
+    sysid: 1
+    fcu_url: /dev/solo-fcu:921600
+ld19:
+  enabled: false
+  device: /dev/ld19
+  frame_id: uav1/laser
+gopro:
+  enabled: false
+  model: unknown
+  record_and_stream: true
+  stream_uri: null

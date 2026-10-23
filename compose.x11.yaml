@@ -1,0 +1,8 @@
+# Native Linux X11 display override.
+services:
+  sim:
+    environment:
+      DISPLAY: ${DISPLAY:-:0}
+      QT_X11_NO_MITSHM: "1"
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw

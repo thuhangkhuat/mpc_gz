@@ -1,0 +1,75 @@
+# Standalone release deployment: docker compose -f compose.release.yaml ...
+# SIM_IMAGE / COMPANION_IMAGE must be platform-specific registry digest references.
+x-runtime: &runtime
+  init: true
+  user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+  read_only: true
+  tmpfs:
+    - /tmp:rw,nosuid,nodev,mode=1777
+  stop_signal: SIGINT
+  stop_grace_period: 30s
+  logging:
+    driver: local
+    options:
+      max-size: 20m
+      max-file: "3"
+  volumes:
+    - type: bind
+      source: ${CONFIG_DIR:-./config}
+      target: /workspace/config
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${RUNS_DIR:-./runs}
+      target: /workspace/runs
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${ARTIFACTS_DIR:-./artifacts}
+      target: /workspace/artifacts
+      bind:
+        create_host_path: false
+services:
+  sim:
+    <<: *runtime
+    image: ${SIM_IMAGE:?Set SIM_IMAGE to a tested platform-specific image@sha256 digest}
+    platform: ${RELEASE_PLATFORM:?Set RELEASE_PLATFORM to linux/amd64 or linux/arm64}
+    shm_size: 1gb
+    environment:
+      SOLO_DEV: "0"
+      HOME: /tmp/solo-user-home
+      ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-42}
+      ROS_AUTOMATIC_DISCOVERY_RANGE: LOCALHOST
+      RMW_IMPLEMENTATION: rmw_cyclonedds_cpp
+      GZ_PARTITION: ${COMPOSE_PROJECT_NAME:-solo-release}
+      FLEET_CONFIG: ${FLEET_CONFIG:-/workspace/config/fleet.yaml}
+      READINESS_TIMEOUT: ${READINESS_TIMEOUT:-600}
+      LIBGL_ALWAYS_SOFTWARE: ${LIBGL_ALWAYS_SOFTWARE:-}
+      RUN_ID: ${RUN_ID:-}
+      MPC_SCENARIO: ${MPC_SCENARIO:-/opt/solo_ws/install/solo_mpc/share/solo_mpc/scenarios/small50_3uav.yaml}
+      MPC_SETTINGS: ${MPC_SETTINGS:-/opt/solo_ws/install/solo_mpc/share/solo_mpc/config/controller.yaml}
+      MPC_TARGET_MODE: ${MPC_TARGET_MODE:-}
+      MPC_RECORD_CAMERAS: ${MPC_RECORD_CAMERAS:-false}
+      MPC_RECORD_OVERHEAD: ${MPC_RECORD_OVERHEAD:-false}
+    command: [ros2, launch, solo_mpc, mpc.launch.py]
+    healthcheck:
+      test: [CMD, python3, /workspace/scripts/healthcheck.py]
+      interval: 10s
+      timeout: 3s
+      start_period: 600s
+      retries: 3
+  companion:
+    <<: *runtime
+    profiles: [hardware]
+    image: ${COMPANION_IMAGE:?Set COMPANION_IMAGE to a tested platform-specific image@sha256 digest}
+    platform: ${RELEASE_PLATFORM:?Set RELEASE_PLATFORM to linux/amd64 or linux/arm64}
+    network_mode: host
+    environment:
+      SOLO_DEV: "0"
+      HOME: /tmp/solo-user-home
+      ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-42}
+      RMW_IMPLEMENTATION: rmw_cyclonedds_cpp
+      ROS_AUTOMATIC_DISCOVERY_RANGE: ${HARDWARE_DISCOVERY_RANGE:-LOCALHOST}
+      HARDWARE_CONFIG: /workspace/config/hardware.yaml
+      RUNS_ROOT: /workspace/runs/hardware
