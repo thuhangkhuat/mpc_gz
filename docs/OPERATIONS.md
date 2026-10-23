@@ -131,6 +131,16 @@ time. Multiple shells can observe the same MAVROS instances.
 The GUI opens with a free camera; it does not follow the target. To follow a
 model, right-click it in the 3D view or entity tree and choose Follow.
 
+`./scripts/dev rviz` opens RViz in the simulation container on simulation time
+with [solo_mpc.rviz](../config/solo_mpc.rviz): fixed frame `world`, top-down
+view, and for `uav1` the LiDAR scan, the hard MPC corridor (`/uav1/mpc/corridor`,
+`MarkerArray`, outline and translucent fill at flight altitude), the grid path
+that seeds it (`/uav1/mpc/path`), the MPC prediction and the target pose. The
+corridor and grid path are published each control cycle; a stop-plan cycle
+shows the last verified corridor and no new grid path. Pass another config as
+`./scripts/dev rviz /workspace/config/<file>.rviz`; for other UAVs change the
+`uav1` topic prefixes.
+
 ## Logs and evaluation
 
 | Output in `runs/<run-id>/` | Contents |

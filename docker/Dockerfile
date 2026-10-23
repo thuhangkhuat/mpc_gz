@@ -113,7 +113,7 @@ RUN printf 'BUILD_JOBS=%s\nARDUPILOT_COMMIT=%s\nGAZEBO_PLUGIN_COMMIT=%s\n' \
 FROM simulation_dependencies AS simulation_mpc_dependencies
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      ros-jazzy-ros-gz-bridge python3-opencv && preserve-apt
+      ros-jazzy-ros-gz-bridge python3-opencv ros-jazzy-rviz2 && preserve-apt
 COPY locks/mpc-requirements.txt /opt/solo/mpc-requirements.txt
 COPY locks/mpc-py312.lock /opt/solo/mpc-py312.lock
 RUN python3 -m venv --system-site-packages /opt/venvs/mpc && \
@@ -172,7 +172,7 @@ CMD ["ros2", "launch", "solo_bringup", "hardware.launch.py"]
 
 FROM runtime_common AS simulation_root
 RUN --network=none --mount=from=simulation_mpc_dependencies,source=/opt/solo/build-inputs/apt,target=/inputs,ro \
-    install-runtime gz-harmonic ros-jazzy-ros-gz-bridge python3-opencv \
+    install-runtime gz-harmonic ros-jazzy-ros-gz-bridge python3-opencv ros-jazzy-rviz2 \
       gstreamer1.0-plugins-bad gstreamer1.0-libav gstreamer1.0-gl \
       libgl1-mesa-dri libegl1 mesa-utils libqt5svg5
 COPY --from=simulation_dependencies /opt/ardupilot/build/sitl/bin/arducopter /opt/ardupilot/build/sitl/bin/arducopter

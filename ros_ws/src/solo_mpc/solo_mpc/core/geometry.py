@@ -44,3 +44,24 @@ def densify(points, ds):
         n = max(1, int(np.ceil(np.linalg.norm(b - a) / ds)))
         out.extend(a + (b - a) * (np.arange(1, n + 1)[:, None] / n))
     return np.asarray(out)
+
+
+def halfspace_polygon(A, b, tol=1e-7):
+    """Counter-clockwise vertices of the bounded 2D region A x <= b (empty if none)."""
+    A, b = np.asarray(A, float), np.asarray(b, float)
+    vertices = []
+    for i in range(len(b)):
+        for j in range(i + 1, len(b)):
+            M = A[[i, j]]
+            if abs(np.linalg.det(M)) < 1e-12:
+                continue
+            p = np.linalg.solve(M, b[[i, j]])
+            if np.all(A @ p <= b + tol * np.maximum(1.0, np.abs(b))):
+                vertices.append(p)
+    if len(vertices) < 3:
+        return np.empty((0, 2))
+    P = np.unique(np.round(np.asarray(vertices), 9), axis=0)
+    if len(P) < 3:
+        return np.empty((0, 2))
+    centre = P.mean(axis=0)
+    return P[np.argsort(np.arctan2(P[:, 1] - centre[1], P[:, 0] - centre[0]))]

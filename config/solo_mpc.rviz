@@ -1,0 +1,101 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+  - Class: rviz_common/Views
+    Name: Views
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Grid (1 m)
+      Enabled: true
+      Reference Frame: <Fixed Frame>
+      Cell Size: 1
+      Plane Cell Count: 110
+      Color: 160; 160; 164
+      Alpha: 0.3
+    - Class: rviz_default_plugins/TF
+      Name: TF
+      Enabled: true
+      Show Names: false
+      Marker Scale: 1
+    - Class: rviz_default_plugins/LaserScan
+      Name: LiDAR scan
+      Enabled: true
+      Topic:
+        Value: /uav1/scan
+        Depth: 5
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Durability Policy: Volatile
+      Style: Flat Squares
+      Size (m): 0.06
+      Color Transformer: FlatColor
+      Color: 255; 60; 60
+      Decay Time: 0
+    - Class: rviz_default_plugins/MarkerArray
+      Name: Corridor
+      Enabled: true
+      Topic:
+        Value: /uav1/mpc/corridor
+        Depth: 5
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Durability Policy: Volatile
+    - Class: rviz_default_plugins/Path
+      Name: Grid path (JPS)
+      Enabled: true
+      Topic:
+        Value: /uav1/mpc/path
+        Depth: 5
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Durability Policy: Volatile
+      Line Style: Lines
+      Color: 255; 200; 0
+      Alpha: 1
+    - Class: rviz_default_plugins/Path
+      Name: MPC prediction
+      Enabled: true
+      Topic:
+        Value: /uav1/mpc/prediction
+        Depth: 5
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Durability Policy: Volatile
+      Line Style: Billboards
+      Line Width: 0.05
+      Color: 60; 255; 60
+      Alpha: 1
+    - Class: rviz_default_plugins/Pose
+      Name: Target
+      Enabled: true
+      Topic:
+        Value: /target/ground_truth
+        Depth: 5
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Durability Policy: Volatile
+      Shape: Axes
+      Axes Length: 1
+      Axes Radius: 0.15
+  Enabled: true
+  Global Options:
+    Fixed Frame: world
+    Background Color: 40; 40; 44
+    Frame Rate: 30
+  Tools:
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Measure
+  Views:
+    Current:
+      Class: rviz_default_plugins/TopDownOrtho
+      Name: Current View
+      Target Frame: <Fixed Frame>
+      Angle: 0
+      Scale: 15
+      X: 0
+      Y: 0
+Window Geometry:
+  Width: 1400
+  Height: 900

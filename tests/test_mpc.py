@@ -204,3 +204,18 @@ def test_three_uav_fleet_requires_valid_follower_slots(tmp_path, cells):
     path.write_text(yaml.safe_dump(scenario))
     with pytest.raises(ValueError, match="GRID_CELLS"):
         load_settings(path, PKG / "config/controller.yaml")
+
+
+def test_corridor_polygon_matches_halfspaces():
+    from solo_mpc.core.geometry import halfspace_polygon
+
+    # Unit square with a redundant face and a cut corner.
+    A = np.array([[1, 0], [-1, 0], [0, 1], [0, -1], [1, 0], [1, 1]], float)
+    b = np.array([1, 0, 1, 0, 2, 1.5])
+    polygon = halfspace_polygon(A, b)
+    assert len(polygon) == 5
+    assert np.all(A @ polygon.T <= b[:, None] + 1e-9)
+    x, y = polygon[:, 0], polygon[:, 1]
+    area = 0.5 * np.sum(x * np.roll(y, -1) - np.roll(x, -1) * y)
+    assert area == pytest.approx(1 - 0.125)  # positive: counter-clockwise
+    assert len(halfspace_polygon(A[:2], b[:2])) == 0  # unbounded strip

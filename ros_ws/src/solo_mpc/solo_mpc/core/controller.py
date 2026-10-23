@@ -262,6 +262,7 @@ class TeamController(FleetGuidance):
         return {"ok": True, "nominal_ok": False, "position": rows[1, :2].copy(),
                 "velocity": rows[1, 2:4].copy(), "acceleration": control.copy(),
                 "prediction": rows.copy(), "controls": controls,
+                "corridor": self.active_corridors.get(name),
                 "reason": f"stop_plan: {reason}", **metrics}
 
     def integrate_scans(self, scans):
@@ -377,5 +378,8 @@ class TeamController(FleetGuidance):
             "controller_mode": guidance["mode"],
             "solver_status": solver_status,
             "solver_ms": solver_ms,
+            # Visualization only: hard corridor A x <= b and the grid path it seeds from.
+            "corridor": (A.copy(), b.copy()),
+            "path": np.asarray(path, float)[:, :2].copy(),
             **metrics,
         }

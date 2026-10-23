@@ -52,6 +52,7 @@ Usage: ./scripts/dev COMMAND [arguments]
   logs                           Follow process logs (Ctrl+C only stops tail)
   shell                          Bash inside simulation container
   gui                            Gazebo GUI client; server keeps running on GUI exit
+  rviz [CONFIG]                  RViz: scan, corridor, paths (default /workspace/config/solo_mpc.rviz)
   stop                           LAND, await disarm, then stop simulation
   stop --force                   Stop processes immediately, no LAND
   test                           Unit/config tests inside image
@@ -121,6 +122,8 @@ case "$command" in
   logs) "${dc[@]}" logs -f --tail 100 sim ;;
   shell) "${dc[@]}" exec sim /usr/local/bin/solo-entrypoint bash ;;
   gui) "${dc[@]}" exec sim /usr/local/bin/solo-entrypoint python3 /workspace/scripts/gazebo_gui.py ;;
+  rviz) "${dc[@]}" exec sim /usr/local/bin/solo-entrypoint rviz2 -d "${1:-/workspace/config/solo_mpc.rviz}" \
+          --ros-args -p use_sim_time:=true ;;
   mission) "${dc[@]}" exec -T sim /usr/local/bin/solo-entrypoint ros2 run solo_mpc mission "$@" ;;
   evaluate) "${dc[@]}" exec -T sim /usr/local/bin/solo-entrypoint ros2 run solo_mpc evaluate "$@" ;;
   stop)

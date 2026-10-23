@@ -187,7 +187,7 @@ def test_force_stop_only_stops_processes(fake_docker):
 
 
 @pytest.mark.parametrize("args", [["gui"], ["mpc", "--no-wait", "--gui"]])
-def test_gui_commands_start_target_follow_helper(fake_docker, args):
+def test_gui_commands_start_gui_helper(fake_docker, args):
     log, env = fake_docker
     result = invoke(args, env)
     entries = calls(log)
@@ -203,6 +203,16 @@ def test_gui_commands_start_target_follow_helper(fake_docker, args):
             if entry["env"]["RUN_ID"]:
                 (ROOT / "runs" / (entry["env"]["RUN_ID"] + ".image-id.json")).unlink(missing_ok=True)
                 (ROOT / 'runs' / (entry['env']['RUN_ID'] + '.gui.log')).unlink(missing_ok=True)
+
+
+@pytest.mark.parametrize("args,config", [(["rviz"], "/workspace/config/solo_mpc.rviz"),
+                                         (["rviz", "/workspace/config/x.rviz"], "/workspace/config/x.rviz")])
+def test_rviz_runs_in_simulation_container_on_sim_time(fake_docker, args, config):
+    log, env = fake_docker
+    assert invoke(args, env).returncode == 0
+    (command,) = [e["args"] for e in calls(log)]
+    assert command[command.index("rviz2"):] == ["rviz2", "-d", config, "--ros-args", "-p", "use_sim_time:=true"]
+    assert command[command.index("rviz2") - 2:command.index("rviz2")] == ["sim", "/usr/local/bin/solo-entrypoint"]
 
 
 @pytest.mark.parametrize('no_wait', [False, True])
