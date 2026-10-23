@@ -67,14 +67,20 @@ adjust UAV positions while following the target and avoiding obstacles.
 
 ## Single Solo-like UAV, fixed target
 
+[square50_1uav.yaml](../ros_ws/src/solo_mpc/scenarios/square50_1uav.yaml)
+(selected by the checked-out `.env`) is a 50 × 50 m map centred on the world
+origin: `xlim`/`ylim` are `[-25, 25]`, the UAV starts at `[0, 0]` and the fixed
+target is at `[18, 18]`, with 20 small obstacles. Every generated world draws a
+yellow visual-only ground strip just outside `xlim`/`ylim` to show the map
+bounds; it has no collision and the horizontal LiDAR does not see it.
+
 [soccer_1uav.yaml](../ros_ws/src/solo_mpc/scenarios/soccer_1uav.yaml) uses a
 soccer-pitch-sized 105 × 68 m field with 40 small obstacles: poles (0.15 m
 radius), masts (0.3 m), narrow frames and 1 m boxes, at least 2.5 m apart. One
 UAV starts at `[8, 34]` and flies to a fixed target at `[97, 34]`; several
-obstacles block the straight line. Select it with
+obstacles block the straight line. Select either with
 [fleet_1uav.yaml](../config/fleet_1uav.yaml) and
-[controller_solo.yaml](../ros_ws/src/solo_mpc/config/controller_solo.yaml)
-(the checked-out `.env` already does):
+[controller_solo.yaml](../ros_ws/src/solo_mpc/config/controller_solo.yaml):
 
 ```bash
 ./scripts/dev mpc \

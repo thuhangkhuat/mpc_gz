@@ -47,6 +47,30 @@ def solid(world, name, position, shape, size, color):
     return model
 
 
+def boundary(world, xmin, ymin, xmax, ymax, width=0.2, color="1 0.85 0 1"):
+    # Visual-only ground strips just outside the map bounds: no collision, and
+    # flat on the ground so the horizontal LiDAR never returns them. Yellow
+    # stays outside the marker detector's magenta hue band.
+    model = element(world, "model", name="field_boundary")
+    element(model, "static", "true")
+    link = element(model, "link", name="body")
+    cx, cy = (xmin + xmax) / 2, (ymin + ymax) / 2
+    lx, ly = xmax - xmin + 2 * width, ymax - ymin + 2 * width
+    for name, x, y, size in [
+        ("south", cx, ymin - width / 2, (lx, width)),
+        ("north", cx, ymax + width / 2, (lx, width)),
+        ("west", xmin - width / 2, cy, (width, ly)),
+        ("east", xmax + width / 2, cy, (width, ly)),
+    ]:
+        visual = element(link, "visual", name=name)
+        element(visual, "pose", f"{x} {y} 0.005 0 0 0")
+        element(element(element(visual, "geometry"), "box"), "size", f"{size[0]} {size[1]} 0.01")
+        material = element(visual, "material")
+        element(material, "ambient", color)
+        element(material, "diffuse", color)
+    return model
+
+
 def sensors(model, name, settings, cfg, camera_enabled=True):
     link = element(model, "link", name="perception_link")
     element(link, "pose", "0 0 0 0 0 0", relative_to="iris_with_standoffs::base_link")
@@ -184,6 +208,7 @@ def generate_mpc_world(fleet, source, destination, scenario_path, settings_path,
     solid(world, "field_ground", [(xmin + xmax) / 2, (ymin + ymax) / 2, 0],
           "plane", [max(150, xmax - xmin + padding), max(150, ymax - ymin + padding)],
           "0.6 0.6 0.6 1")
+    boundary(world, xmin, ymin, xmax, ymax)
     height = settings["obstacle_height"]
     for i, (x, y, w, h) in enumerate(scenario["obstacles"]["rects"]):
         solid(

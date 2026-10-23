@@ -65,10 +65,12 @@ def test_single_waypoint_is_a_fixed_target():
         target_route({'tar_max_speed': 0.6, 'target': {'waypoints': [[97, 34]], 'speeds': [1]}}, {})
 
 
-def test_soccer_scenario_crosses_field_to_fixed_target():
-    scenario, settings, cfg = load_settings(PKG / 'scenarios/soccer_1uav.yaml',
+@pytest.mark.parametrize('name,xlim,ylim', [('soccer_1uav', [0, 105], [0, 68]),
+                                            ('square50_1uav', [-25, 25], [-25, 25])])
+def test_single_uav_scenario_crosses_field_to_fixed_target(name, xlim, ylim):
+    scenario, settings, cfg = load_settings(PKG / f'scenarios/{name}.yaml',
                                             PKG / 'config/controller_solo.yaml')
-    assert (scenario['xlim'], scenario['ylim']) == ([0, 105], [0, 68])
+    assert (scenario['xlim'], scenario['ylim']) == (xlim, ylim)
     assert settings['target_mode'] == 'ground_truth'
     start = np.asarray(scenario['starts'][0][:2])
     goal = np.asarray(scenario['target']['waypoints'][0])

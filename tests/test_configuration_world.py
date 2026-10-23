@@ -144,6 +144,29 @@ def test_three_uav_world_covers_field_and_configures_sensors(tmp_path, upstream,
     assert rows[0]['gz_topic_name'] == '/world/mpc_small50/clock'
 
 
+def test_world_marks_map_bounds_without_collision(tmp_path, upstream):
+    from solo_mpc.world import generate_mpc_world
+
+    pkg = ROOT / 'ros_ws/src/solo_mpc'
+    output, _ = generate_mpc_world(load_config(ROOT / 'config/fleet_1uav.yaml'), upstream,
+                                   tmp_path / 'world.sdf', pkg / 'scenarios/square50_1uav.yaml',
+                                   pkg / 'config/controller_solo.yaml')
+    world = ET.parse(output).getroot().find('world')
+    assert world.find("model[@name='uav1']/pose").text.split()[:2] == ['0', '0']
+    strips = world.find("model[@name='field_boundary']")
+    assert strips.find('.//collision') is None
+    edges = {}
+    for visual in strips.iter('visual'):
+        x, y, z = map(float, visual.findtext('pose').split()[:3])
+        sx, sy, sz = map(float, visual.findtext('.//box/size').split())
+        assert z + sz / 2 <= 0.01
+        edges[visual.get('name')] = (x, y, sx, sy)
+    # Each strip lies just outside its edge and spans the full side.
+    assert edges['south'][1] < -25 and edges['north'][1] > 25
+    assert edges['west'][0] < -25 and edges['east'][0] > 25
+    assert edges['south'][2] >= 50 and edges['west'][3] >= 50
+
+
 def test_rejects_mismatched_start_and_controller_altitudes(tmp_path):
     from solo_mpc.settings import load_settings
 
