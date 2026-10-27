@@ -65,6 +65,9 @@ params:
   SENSING_RADIUS: 3.0  # LiDAR range: ~2x stop + corridor margin (1.3 m); short rays tolerate gust tilt
   LOCAL_SEARCH: jps  # uniform step costs; dijkstra applies UNKNOWN_COST
   CONTINGENCY: true
+  SPEED_RECOVERY: true  # measured speed slightly above VMAX (FCU overshoot) would make the first
+                        # step infeasible: IPOPT then runs to its CPU limit, cycle after cycle.
+                        # Allows only the overspeed a full brake cannot remove; corridor unchanged.
   HORIZON_LENGTH: 8  # 1.6 s prediction at 0.2 s steps (~1.1 m ahead at VMAX)
   BACKUP_HORIZON: 8  # backup ends at rest after 1.6 s; 0.7 m/s needs ~1 s
   W_backup: 0.1

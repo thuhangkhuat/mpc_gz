@@ -97,6 +97,7 @@ def analyze(run):
         ok = {"search", "tracking"}
         after_failure = sum(k > 0 and rows[k - 1][1]["result"] not in ok for k in timeouts)
         near = [nearest(shapes, rows[k][1]["position"][:2]) for k in timeouts]
+        overspeed = sum(speed[k] > cfg["VMAX"] for k in timeouts)
         # Grid-path bearing turning > 90 deg within 1 s: the planner switched sides.
         headings = [(t, v["path_heading"]) for t, v, _ in rows if v.get("path_heading") is not None]
         flips = []
@@ -177,6 +178,7 @@ def analyze(run):
             "corridor_used_faces": {"p50": percentile(faces, 50), "p95": percentile(faces, 95),
                                     "max": max(faces, default=None)},
             "cpu_timeouts": {"count": len(timeouts), "right_after_failure": after_failure,
+                             "measured_over_vmax": int(overspeed),
                              "median_obstacle_m": percentile(near, 50),
                              "within_1m_of_obstacle": sum(d < 1.0 for d in near)},
             "stops_away_from_target": stops,
@@ -226,7 +228,8 @@ def show(report):
             print(f"corridor faces used: p50 {f['p50']:.0f}, p95 {f['p95']:.0f}, max {f['max']}")
         c = v["cpu_timeouts"]
         if c["count"]:
-            print(f"CPU timeouts: {c['count']}, {c['right_after_failure']} right after a failed cycle (cold start); "
+            print(f"CPU timeouts: {c['count']}, {c['right_after_failure']} right after a failed cycle, "
+                  f"{c['measured_over_vmax']} with measured speed above VMAX; "
                   f"median obstacle {c['median_obstacle_m']:.2f} m, {c['within_1m_of_obstacle']} within 1 m")
         if v["setpoint_time_s"]:
             print("setpoint time (s):", ", ".join(f"{k} {t}" for k, t in v["setpoint_time_s"].items()))

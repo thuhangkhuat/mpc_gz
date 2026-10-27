@@ -56,3 +56,30 @@ def test_measured_overspeed_has_bounded_feasible_recovery_and_stopping_branch(ve
         assert np.max(np.linalg.norm(controls, axis=1)) <= cfg['UMAX'] + 1e-5
         assert np.all(states[1:, :2] @ A.T <= A @ x0[:2] + 3 - cfg['CORRIDOR_MARGIN'] + 1e-5)
     np.testing.assert_allclose(solver.last_backup[0][-1, 2:], 0., atol=1e-6)
+
+
+def test_solo_overshoot_after_fcu_lag_stays_solvable():
+    """FCU overshoot to 0.78 m/s at +0.3 m/s^2 cannot drop below VMAX 0.7 in one step."""
+    pytest.importorskip('casadi')
+    from solo_mpc.core.mpc_problem import MPCProblem, speed_recovery_limits
+    from solo_mpc.settings import load_settings
+    pkg = Path(__file__).resolve().parents[1] / 'ros_ws/src/solo_mpc'
+    _, _, cfg = load_settings(pkg / 'scenarios/square50_1uav.yaml', pkg / 'config/controller_solo.yaml')
+    assert cfg['SPEED_RECOVERY'] and cfg['VMAX'] == 0.7
+    x0 = np.array([10., 10., 0.78, 0., 0.3, 0.])
+    limits = speed_recovery_limits(x0, cfg, cfg['BACKUP_HORIZON'])
+    assert limits[0] > cfg['VMAX'] and limits[-1] == cfg['VMAX']
+    solver = MPCProblem(0, cfg['CORRIDOR_MAX_FACES'], cfg)
+    A = np.array([[1, 0], [-1, 0], [0, 1], [0, -1]])
+    ok, X, U = solver.solve(
+        x0=x0, A_hard=A, b_hard=A @ x0[:2] + 3,
+        A_cost=None, b_cost=None, use_corr_cost=False, others=[], nb_flags=[],
+        tgt=[30., 10.], w_search=1., slot=[0., 0.], w_slot=0., leader=False,
+        ref=[0., 0.], trk_goal=[30., 10.], s_ref=0.,
+        X_init=np.tile(x0, (cfg['HORIZON_LENGTH'] + 1, 1)), U_init=np.zeros((cfg['HORIZON_LENGTH'], 2)))
+    assert ok, solver.opti.stats()
+    assert solver.solve_times[-1] < cfg['IPOPT_OPTIONS']['ipopt.max_cpu_time']
+    for states, controls in ((X, U), solver.last_backup):
+        assert np.all(np.linalg.norm(states[1:, 2:4], axis=1) <= limits[:len(states) - 1] + 1e-5)
+        assert np.all(states[1:, :2] @ A.T <= A @ x0[:2] + 3 - cfg['CORRIDOR_MARGIN'] + 1e-5)
+    np.testing.assert_allclose(solver.last_backup[0][-1, 2:], 0., atol=1e-6)
