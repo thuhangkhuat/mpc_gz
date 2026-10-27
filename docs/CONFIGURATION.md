@@ -98,11 +98,24 @@ at its goal from the start, `arrival_timeout_sim` bounds the whole crossing and
 is 180 s in `controller_solo.yaml`. The mission completes once the UAV is within
 `viewing_radius` of the target.
 
-`controller_solo.yaml` uses `target_mode: ground_truth` (no camera detection),
-`VMAX` 3 m/s and `UMAX` 2.5 m/s², and loads 3DR Solo FCU limits through
-`sitl_params` (`ANGLE_MAX` 20°, `WPNAV_SPEED` 3 m/s, `WPNAV_ACCEL` 2.5 m/s²,
-Solo attitude acceleration limits), taken from ArduPilot's
-`Solo_Copter-3.6_GreenCube.param`. The Gazebo airframe remains Iris.
+`controller_solo.yaml` models slow, realistic Solo flight with
+`target_mode: ground_truth` (no camera detection) at `flight_altitude` 2 m (all
+scenario starts use z = 2):
+
+| Parameter | Value | Reason |
+|---|---:|---|
+| `VMAX` / `UMAX` | 0.7 m/s / 1.0 m/s² | Cruise 0.5–0.7 m/s; 5.8° lean, about 0.75 m to stop including latency |
+| `ACCEL_TAU` | 0.3 s | Solo attitude acceleration limits and FCU jerk shaping lag the command |
+| `ROBOT_RADIUS` / `INFLATE_MARGIN` | 0.40 / 0.2 m | Covers Iris prop tips in Gazebo (0.383 m) and a Solo (0.357 m) |
+| `SENSING_RADIUS` | 3 m | About twice the 1.3 m stop plus corridor margin; short rays stay usable when gusts tilt the vehicle |
+| `BACKUP_HORIZON` | 15 steps | Stop branch ends at rest within 1.5 s; shorter solves |
+| `scan_height_tolerance` | 1.0 m | Keeps 3 m rays for tilts up to 19.5°; rays reach the ground only past 35° |
+| `arrival_timeout_sim` | 300 s | A 62 m diagonal at ≤ 0.7 m/s with detours |
+
+FCU limits come through `sitl_params`: Solo `ANGLE_MAX` 20° and attitude
+acceleration limits from ArduPilot's `Solo_Copter-3.6_GreenCube.param`, with
+`WPNAV_SPEED` 1.5 m/s and `WPNAV_ACCEL` 2 m/s² set above the MPC limits so the
+FCU never clips MPC references. The Gazebo airframe remains Iris.
 [small50_1uav.yaml](../ros_ws/src/solo_mpc/scenarios/small50_1uav.yaml) is the
 original moving-target field with the same single UAV.
 

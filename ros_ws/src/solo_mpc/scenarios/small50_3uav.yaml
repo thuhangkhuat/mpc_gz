@@ -9,9 +9,9 @@ viewing_radius: 1.5
 tar_max_speed: 0.6
 
 starts:                 # [x, y, z], metres; middle UAV first, then left and right
-  - [5, 2, 3]
-  - [2.5, 2, 3]
-  - [7.5, 2, 3]
+  - [5, 2, 2]
+  - [2.5, 2, 2]
+  - [7.5, 2, 2]
 
 target:
   waypoints:            # smooth turns, lateral sweeps, and changes in north/south travel

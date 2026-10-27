@@ -199,6 +199,29 @@ def test_three_uav_lidar_stays_usable_at_commanded_acceleration():
     assert np.max(scan.endpoints[:, 2]) < settings['obstacle_height']
 
 
+def test_solo_lidar_keeps_every_ray_at_commanded_acceleration():
+    import numpy as np
+    from scipy.spatial.transform import Rotation
+    from solo_mpc.core.sensors import project_scan
+    from solo_mpc.settings import load_settings
+
+    pkg = ROOT / 'ros_ws/src/solo_mpc'
+    scenario, settings, cfg = load_settings(pkg / 'scenarios/square50_1uav.yaml',
+                                            pkg / 'config/controller_solo.yaml')
+    assert scenario['starts'][0][2] == settings['flight_altitude'] == 2.0
+    assert 0.5 <= cfg['VMAX'] <= 0.7
+    # Commanded acceleration lean, and a 15 degree gust tilt a real Solo sees.
+    leans = [np.arctan(cfg['UMAX'] / 9.81), np.radians(15)]
+    for lean in leans + [-lean for lean in leans]:
+        scan = project_scan(np.full(settings['lidar_samples'], np.inf), -np.pi,
+                            cfg['LIDAR_ANGULAR_RES'], cfg.get('LIDAR_RANGE_MIN', 0.15),
+                            cfg['SENSING_RADIUS'], np.array([25., 25., settings['flight_altitude'] + 0.08]),
+                            Rotation.from_euler('y', lean).as_quat(), 0.,
+                            height_tolerance=settings['scan_height_tolerance'])
+        assert len(scan.endpoints) == settings['lidar_samples']
+        assert np.min(scan.endpoints[:, 2]) > 0.3
+
+
 @pytest.mark.parametrize('target_mode', ['', 'ground_truth', 'settings_ground_truth'])
 @pytest.mark.parametrize('record_cameras', [False, True])
 @pytest.mark.parametrize('record_overhead', [False, True])

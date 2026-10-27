@@ -10,7 +10,7 @@ viewing_radius: 1.5
 tar_max_speed: 0.6
 
 starts:                 # [x, y, z], metres
-  - [5, 2, 3]
+  - [5, 2, 2]
 
 target:
   waypoints:            # smooth turns, lateral sweeps, and changes in north/south travel

@@ -197,7 +197,7 @@ def main(argv=None):
     move.add_argument("x", type=float)
     move.add_argument("y", type=float)
     move.add_argument("--uav")
-    move.add_argument("--timeout", type=float, default=120.0)
+    move.add_argument("--timeout", type=float, default=300.0)
     obs = sub.add_parser("obstacle", help="add, remove, clear, list or save live obstacles")
     obs.add_argument("action", choices=["add", "remove", "clear", "list", "save"])
     obs.add_argument("values", nargs="*")

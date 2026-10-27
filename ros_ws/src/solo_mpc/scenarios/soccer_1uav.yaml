@@ -14,7 +14,7 @@ viewing_radius: 1.5
 tar_max_speed: 0.6      # controller's assumed target speed bound; the target does not move
 
 starts:                 # [x, y, z], metres
-  - [8, 34, 3]
+  - [8, 34, 2]
 
 target:
   waypoints:            # a single waypoint keeps the target fixed
