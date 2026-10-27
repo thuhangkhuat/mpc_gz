@@ -1,8 +1,9 @@
 # Restart the mission after changing geometry, solver or dynamics parameters.
-# Slow, realistic 3DR Solo flight: 0.5-0.7 m/s at 2 m. FCU attitude limits come
-# from ArduPilot Tools/Frame_params/Solo_Copter-3.6_GreenCube.param; MPC limits
-# stay inside them so the FCU never clips MPC references. The Gazebo airframe is
-# still Iris (similar size and mass to a Solo).
+# Slow, realistic 3DR Solo flight: 0.5-0.7 m/s at 2 m. Solo-like motion is set by
+# the MPC limits (VMAX, UMAX, ACCEL_TAU) and Solo ANGLE_MAX. The Gazebo airframe
+# is Iris with Iris-tuned PIDs, so its attitude acceleration limits stay at the
+# ArduPilot defaults: Solo's lower ATC_ACCEL_* values without a Solo PID tune made
+# velocity tracking overshoot (1.06 m/s at VMAX 0.7) and oscillate.
 flight_altitude: 2.0  # every scenario start z must match
 obstacle_height: 5.0
 target_height: 0.05
@@ -33,6 +34,7 @@ pose_timeout_wall: 3.0
 fcu_timeout_sim: 2.5
 fcu_timeout_wall: 60.0  # heartbeat follows slow SITL; sim-time expiry remains 2.5 s
 target_mode: ground_truth  # exact fixed target position; no camera detection
+yaw_mode: target  # face the target estimate; hold heading within viewing_radius. none: FCU holds yaw
 altitude_kp: 1.0
 vertical_speed_limit: 0.5
 calibration_samples: 10
@@ -42,18 +44,15 @@ scan_height_tolerance: 1.0   # 3 m rays: keeps tilts up to 19.5 deg (UMAX lean i
 marker_min_pixels: 4
 sitl_params:  # FCU limits loaded on top of copter.parm and gazebo-iris.parm
   ANGLE_MAX: 2000      # Solo 20 deg
-  WPNAV_SPEED: 150     # GUIDED speed cap: headroom above VMAX for position corrections
+  WPNAV_SPEED: 100     # GUIDED speed cap: 0.3 m/s above VMAX for corrections, bounds overshoot
   WPNAV_ACCEL: 200     # GUIDED accel cap: headroom above UMAX
   PSC_JERK_XY: 5       # ArduPilot default, stated explicitly; ACCEL_TAU accounts for it
-  WP_YAW_BEHAVIOR: 0   # hold heading: GUIDED references ignore yaw, and the default
-                       # (face travel direction) spins the vehicle at low, noisy speeds
+  WP_YAW_BEHAVIOR: 0   # hold heading whenever a reference carries no yaw (hold/expiry);
+                       # the default faces travel direction and spins at low, noisy speeds
   WPNAV_SPEED_UP: 320
   WPNAV_SPEED_DN: 240
   LOIT_SPEED: 1300
   LOIT_ACC_MAX: 200
-  ATC_ACCEL_R_MAX: 36000
-  ATC_ACCEL_P_MAX: 36000
-  ATC_ACCEL_Y_MAX: 7000
 params:
   ROBOT_RADIUS: 0.40   # covers Iris prop tips in Gazebo (0.383 m) and a Solo (0.357 m)
   INFLATE_MARGIN: 0.2  # planner keeps 0.6 m from obstacle surfaces

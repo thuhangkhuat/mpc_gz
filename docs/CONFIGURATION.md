@@ -112,10 +112,17 @@ scenario starts use z = 2):
 | `scan_height_tolerance` | 1.0 m | Keeps 3 m rays for tilts up to 19.5°; rays reach the ground only past 35° |
 | `arrival_timeout_sim` | 300 s | A 62 m diagonal at ≤ 0.7 m/s with detours |
 
-FCU limits come through `sitl_params`: Solo `ANGLE_MAX` 20° and attitude
-acceleration limits from ArduPilot's `Solo_Copter-3.6_GreenCube.param`, with
-`WPNAV_SPEED` 1.5 m/s and `WPNAV_ACCEL` 2 m/s² set above the MPC limits so the
-FCU never clips MPC references. The Gazebo airframe remains Iris.
+FCU limits come through `sitl_params`: Solo `ANGLE_MAX` 20° from ArduPilot's
+`Solo_Copter-3.6_GreenCube.param`, with `WPNAV_SPEED` 1 m/s and `WPNAV_ACCEL`
+2 m/s² just above the MPC limits so the FCU does not clip MPC references but
+bounds overshoot. The Gazebo airframe is Iris with Iris-tuned PIDs, so attitude
+acceleration limits stay at ArduPilot defaults; Solo's lower `ATC_ACCEL_*`
+values without a Solo PID tune made velocity tracking overshoot and oscillate.
+
+`yaw_mode: target` makes the controller command a heading toward the target
+estimate, held once the UAV is within `viewing_radius`; `none` leaves yaw to the
+FCU, which `WP_YAW_BEHAVIOR: 0` keeps fixed. The LiDAR covers 360°, so heading
+does not change planning.
 [small50_1uav.yaml](../ros_ws/src/solo_mpc/scenarios/small50_1uav.yaml) is the
 original moving-target field with the same single UAV.
 

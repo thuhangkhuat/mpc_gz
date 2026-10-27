@@ -21,6 +21,8 @@ sys.path[:0] = [str(ROOT / "ros_ws/src/solo_mpc"), str(ROOT / "ros_ws/src/solo_b
 
 STOP_SPEED = 0.1   # m/s: slower than this counts as stopped
 MIN_STOP = 1.0     # s: shorter pauses are ignored
+BACK_SPEED = 0.1   # m/s: moving away from the target faster than this counts as backing
+MIN_BACK = 0.3     # s: shorter reversals are ignored
 
 
 def lines(path):
@@ -88,6 +90,23 @@ def analyze(run):
         solver = [v["solver_ms"] for _, v, _ in rows if v.get("solver_ms") is not None]
         sp_rows, sp_time = setpoint_time(transitions, name, end)
         target = [r.get("target_estimate") for _, _, r in rows]
+        statuses = Counter(v["solver_status"] for _, v, _ in rows if v.get("solver_status"))
+        command = [(np.linalg.norm(v["command_velocity"][:2]), s) for (_, v, _), s
+                   in zip(rows, speed) if v.get("command_velocity") is not None]
+        # Velocity component toward the target while still away from it.
+        toward = np.array([np.nan if goal is None or math.dist(v["position"][:2], goal[:2])
+                           <= cfg["VIEWING_RADIUS"] else float(np.dot(
+                               v["velocity"][:2], np.subtract(goal[:2], v["position"][:2])
+                               / math.dist(v["position"][:2], goal[:2])))
+                           for (_, v, _), goal in zip(rows, target)])
+        backing, begin = [], None
+        for i, value in enumerate(np.r_[toward, np.nan]):
+            if value < -BACK_SPEED and begin is None:
+                begin = i
+            elif not value < -BACK_SPEED and begin is not None:
+                if stamps[min(i, len(stamps) - 1)] - stamps[begin] >= MIN_BACK:
+                    backing.append(round(float(stamps[begin] - flying[0]["stamp"]), 1))
+                begin = None
 
         stops, start = [], None
         for i, s in enumerate(np.r_[speed, math.inf]):
@@ -122,6 +141,11 @@ def analyze(run):
             "speed_mps": {"mean_moving": float(speed[speed >= STOP_SPEED].mean()) if (speed >= STOP_SPEED).any() else 0.0,
                           "max": float(speed.max()), "vmax": cfg["VMAX"]},
             "stopped_fraction": float((speed < STOP_SPEED).mean()),
+            "over_vmax_fraction": float((speed > 1.05 * cfg["VMAX"]).mean()),
+            "command_tracking_error_mps": None if not command else float(np.mean([abs(a - b) for a, b in command])),
+            "backing_episodes": len(backing),
+            "backing_starts_s": backing[:50],
+            "solver_status": dict(statuses.most_common()),
             "stops_away_from_target": stops,
             "min_body_clearance_m": min((c for _, c in body), default=None),
             "body_contact_samples": sum(c <= 0 for _, c in body),
@@ -149,7 +173,15 @@ def show(report):
         if v["min_body_clearance_m"] is not None:
             print(f"obstacle body clearance: min {v['min_body_clearance_m']:.2f} m; "
                   f"{v['body_contact_samples']} samples at or inside an obstacle")
+        print(f"over 1.05 x VMAX {100 * v['over_vmax_fraction']:.0f}% of cycles; "
+              + ("mean |commanded - measured speed| "
+                 f"{v['command_tracking_error_mps']:.2f} m/s" if v["command_tracking_error_mps"] is not None
+                 else "no command_velocity logged (older run)"))
+        print(f"backing away from target (> {BACK_SPEED} m/s for {MIN_BACK} s): {v['backing_episodes']} times"
+              + (f", first at {v['backing_starts_s'][:8]} s" if v["backing_starts_s"] else ""))
         print("controller results:", ", ".join(f"{k} {n}" for k, n in v["controller_results"].items()))
+        if v["solver_status"]:
+            print("solver status:", ", ".join(f"{k} {n}" for k, n in v["solver_status"].items()))
         if v["setpoint_time_s"]:
             print("setpoint time (s):", ", ".join(f"{k} {t}" for k, t in v["setpoint_time_s"].items()))
         else:

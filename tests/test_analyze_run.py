@@ -56,3 +56,19 @@ def test_reports_mid_route_stop_but_not_arrival(tmp_path):
     # 0.5 rad/s for 19.9 s, across several wraps of +-pi.
     assert abs(vehicle["yaw"]["total_rotation_deg"] - math.degrees(0.5 * 19.9)) < 1
     assert vehicle["min_body_clearance_m"] > 0 and vehicle["body_contact_samples"] == 0
+    assert vehicle["backing_episodes"] == 0 and vehicle["over_vmax_fraction"] == 0
+
+
+def test_counts_backing_away_from_target(tmp_path):
+    write_run(tmp_path)
+    rows = [json.loads(l) for l in (tmp_path / "mpc.jsonl").read_text().splitlines()]
+    for row in rows[20:25]:  # 0.5 s moving back toward the start at 0.4 m/s
+        row["vehicles"]["uav1"]["velocity"] = [-0.4, 0.0, 0.0]
+    for row in rows[40:43]:  # 0.3 s overshoot past VMAX, recorded with the command
+        row["vehicles"]["uav1"]["velocity"] = [1.0, 0.0, 0.0]
+        row["vehicles"]["uav1"]["command_velocity"] = [0.7, 0.0, 0.0]
+    (tmp_path / "mpc.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+    vehicle = analyze_run.analyze(tmp_path)["vehicles"]["uav1"]
+    assert vehicle["backing_episodes"] == 1 and vehicle["backing_starts_s"] == [2.0]
+    assert vehicle["over_vmax_fraction"] == 3 / 200
+    assert abs(vehicle["command_tracking_error_mps"] - 0.3) < 1e-9

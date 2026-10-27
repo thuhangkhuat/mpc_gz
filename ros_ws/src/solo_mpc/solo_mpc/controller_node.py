@@ -51,6 +51,7 @@ class Controller(Node):
         self.outputs = {}
         self.trajectories = {}
         self.visuals = {}
+        self.yaw_hold = {}
         self.status_pub = self.create_publisher(String, "/mpc/status", 10)
         self.log = None
         if args.run_dir:
@@ -308,6 +309,21 @@ class Controller(Node):
                 return
         self._publish_cycle(start, now, stamp, reason, results)
 
+    def _target_yaw(self, n):
+        """World yaw facing the target estimate, or None when yaw is not commanded.
+
+        Within viewing_radius the last heading is held: the bearing to a target
+        directly below the vehicle is noise and would spin it in place.
+        """
+        if self.args.settings_data.get("yaw_mode", "none") != "target":
+            return None
+        estimate = self.team.track.x
+        if estimate is not None and n in self.poses:
+            delta = np.asarray(estimate[:2]) - self.poses[n][0][:2]
+            if np.linalg.norm(delta) > self.args.cfg["VIEWING_RADIUS"]:
+                self.yaw_hold[n] = float(np.arctan2(delta[1], delta[0]))
+        return self.yaw_hold.get(n)
+
     def _publish_visuals(self, n, out, now):
         altitude = self.args.settings_data["flight_altitude"]
         corridor = out.get("corridor")
@@ -350,6 +366,10 @@ class Controller(Node):
             msg.header.frame_id = "world"
             msg.coordinate_frame = PositionTarget.FRAME_LOCAL_NED
             msg.type_mask = PositionTarget.IGNORE_YAW | PositionTarget.IGNORE_YAW_RATE
+            yaw = self._target_yaw(n)
+            if yaw is not None:
+                msg.yaw = yaw
+                msg.type_mask = PositionTarget.IGNORE_YAW_RATE
             msg.position.x, msg.position.y = map(float, out["position"])
             msg.position.z = settings["flight_altitude"]
             msg.velocity.x, msg.velocity.y = map(float, out["velocity"])
@@ -407,6 +427,8 @@ class Controller(Node):
                     "nominal_ok": results.get(n, {}).get("nominal_ok", False),
                     "solver_status": results.get(n, {}).get("solver_status"),
                     "solver_ms": results.get(n, {}).get("solver_ms"),
+                    "command_velocity": (None if results.get(n, {}).get("velocity") is None
+                                         else np.asarray(results[n]["velocity"]).tolist()),
                     **{
                         key: results.get(n, {}).get(key)
                         for key in (

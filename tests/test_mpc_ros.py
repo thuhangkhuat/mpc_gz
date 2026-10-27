@@ -634,3 +634,59 @@ def test_setpoint_guard_allows_measured_overshoot_only(tmp_path, measured, comma
     finally:
         node.destroy_node()
         rclpy.shutdown()
+
+
+def test_controller_faces_target_and_holds_heading_nearby(tmp_path):
+    import numpy as np
+
+    rclpy.init()
+    args = node_args(tmp_path)
+    args.settings_data = dict(args.settings_data, yaw_mode="target", controller_execution="sequential")
+    node = Controller(args)
+    try:
+        name = args.names[0]
+        node.poses[name] = (np.array([0.0, 0.0, 2.0]), np.array([0, 0, 0, 1.0]), 0.0)
+        node.team.track.x = np.array([0.0, 10.0, 0.0, 0.0])
+        assert node._target_yaw(name) == pytest.approx(np.pi / 2)
+        # Target now directly below: keep the last bearing instead of spinning.
+        node.poses[name] = (np.array([0.2, 9.9, 2.0]), np.array([0, 0, 0, 1.0]), 0.0)
+        assert node._target_yaw(name) == pytest.approx(np.pi / 2)
+        node.args.settings_data["yaw_mode"] = "none"
+        assert node._target_yaw(name) is None
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
+
+def test_setpoint_passes_world_yaw_in_local_frame(tmp_path):
+    import numpy as np
+    from mavros_msgs.msg import PositionTarget, State
+    from solo_mpc.ros_utils import pose_message
+
+    rclpy.init()
+    node = Setpoints(node_args(tmp_path))
+    try:
+        name = "test_uav"
+        sent = []
+        node.publishers_keep[name] = SimpleNamespace(publish=sent.append)
+        node.align[name] = {"yaw": 0.5, "translation": [0.0, 0.0, 0.0]}
+        node.enabled = True
+        node.state(name, State(connected=True, armed=True, mode="GUIDED"))
+        stamp = node.get_clock().now().to_msg()
+        node.pose(name, pose_message([1.0, 1.0, 2.0], stamp))
+        reference = PositionTarget()
+        reference.header.frame_id = "world"
+        reference.header.stamp = stamp
+        reference.yaw = 3.0
+        reference.type_mask = PositionTarget.IGNORE_YAW_RATE
+        node.reference(name, reference)
+        node.tick()
+        assert sent[-1].yaw == pytest.approx(2.5)
+        assert sent[-1].type_mask == PositionTarget.IGNORE_YAW_RATE
+        reference.type_mask = PositionTarget.IGNORE_YAW | PositionTarget.IGNORE_YAW_RATE
+        node.reference(name, reference)
+        node.tick()
+        assert sent[-1].type_mask & PositionTarget.IGNORE_YAW
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()

@@ -218,6 +218,11 @@ class Setpoints(Node):
                 out.type_mask = (
                     PositionTarget.IGNORE_YAW | PositionTarget.IGNORE_YAW_RATE
                 )
+                if not reference[0].type_mask & PositionTarget.IGNORE_YAW:
+                    # World heading into the MAVROS local ENU frame; FCU slews to it.
+                    yaw = reference[0].yaw - self.align[n]["yaw"]
+                    out.yaw = float(np.arctan2(np.sin(yaw), np.cos(yaw)))
+                    out.type_mask = PositionTarget.IGNORE_YAW_RATE
                 position, velocity, acceleration = values
                 # Altitude remains an explicit FCU position reference.
                 velocity[2] = float(
