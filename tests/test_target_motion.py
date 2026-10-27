@@ -66,7 +66,8 @@ def test_single_waypoint_is_a_fixed_target():
 
 
 @pytest.mark.parametrize('name,xlim,ylim', [('soccer_1uav', [0, 105], [0, 68]),
-                                            ('square50_1uav', [0, 50], [0, 50])])
+                                            ('square50_1uav', [0, 50], [0, 50]),
+                                            ('dense50_1uav', [0, 50], [0, 50])])
 def test_single_uav_scenario_crosses_field_to_fixed_target(name, xlim, ylim):
     scenario, settings, cfg = load_settings(PKG / f'scenarios/{name}.yaml',
                                             PKG.parents[2] / 'config/drone.yaml')
@@ -86,3 +87,17 @@ def test_single_uav_scenario_crosses_field_to_fixed_target(name, xlim, ylim):
     line = start + t * (goal - start)
     assert any(np.min(np.linalg.norm(line - c, axis=1)) < r + cfg['INFLATE_RADIUS']
                for c, r in obstacles)
+
+
+def test_dense_scenario_uses_large_obstacles_clear_of_the_ground_robot():
+    scenario, settings, cfg = load_settings(PKG / 'scenarios/dense50_1uav.yaml',
+                                            PKG.parents[2] / 'config/drone.yaml')
+    rects, circles = scenario['obstacles']['rects'], scenario['obstacles']['circles']
+    assert len(rects) + len(circles) == 60
+    assert {tuple(r[2:]) for r in rects} == {(0.6, 0.6)} and {c[2] for c in circles} == {0.25}
+    spawn = np.asarray(settings['ground_robot']['spawn'][:2])
+    centres = [np.array([x + w / 2, y + h / 2]) for x, y, w, h in rects] + [np.array(c[:2]) for c in circles]
+    assert min(np.linalg.norm(c - spawn) for c in centres) > 3
+    # Narrowest passage still fits the UAV's inflated footprint on both sides.
+    gaps = [np.linalg.norm(a - b) - 2 * 0.43 for i, a in enumerate(centres) for b in centres[i + 1:]]
+    assert min(gaps) > 2 * cfg['INFLATE_RADIUS']

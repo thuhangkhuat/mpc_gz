@@ -690,3 +690,35 @@ def test_setpoint_passes_world_yaw_in_local_frame(tmp_path):
     finally:
         node.destroy_node()
         rclpy.shutdown()
+
+
+def test_tag_detector_draws_detection_view_only_for_viewers(tmp_path):
+    import numpy as np
+    from sensor_msgs.msg import Image
+    from solo_mpc import apriltag
+
+    root = Path(__file__).resolve().parents[1]
+    args = node_args(tmp_path)
+    args.scenario_data, args.settings_data, args.cfg = load_settings(
+        root / "ros_ws/src/solo_mpc/scenarios/square50_1uav.yaml", root / "config/drone.yaml")
+    rclpy.init()
+    node = MarkerDetector(args)
+    try:
+        tag = apriltag.tag_image("tag36h11", args.settings_data["ground_robot"]["tag"]["id"], cell_px=6)
+        frame = np.full((480, 640, 3), 128, np.uint8)
+        frame[100:100 + tag.shape[0], 200:200 + tag.shape[1]] = tag[..., None]
+        found = node.detect(frame)
+        assert found is not None and found[2].shape == (4, 2)
+        sent = []
+        name = args.names[0]
+        node.debug[name] = SimpleNamespace(get_subscription_count=lambda: 0, publish=sent.append)
+        header = Image().header
+        node.annotate(name, SimpleNamespace(header=header), frame, found, np.array([1.0, 2.0, 0.25]))
+        assert sent == []
+        node.debug[name] = SimpleNamespace(get_subscription_count=lambda: 1, publish=sent.append)
+        node.annotate(name, SimpleNamespace(header=header), frame, found, np.array([1.0, 2.0, 0.25]))
+        node.annotate(name, SimpleNamespace(header=header), frame, None, None)
+        assert [(m.width, m.height, m.encoding) for m in sent] == [(640, 480, "bgr8")] * 2
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()

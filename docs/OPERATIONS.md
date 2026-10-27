@@ -141,6 +141,21 @@ shows the last verified corridor and no new grid path. Pass another config as
 `./scripts/dev rviz /workspace/config/<file>.rviz`; for other UAVs change the
 `uav1` topic prefixes.
 
+### See the camera and tag detections
+
+The RViz config also shows `/uav1/camera/image_raw` (**Camera**) and
+`/uav1/camera/detections` (**Tag detections**): the same frames with the
+detected tag outline and centre in green, the tag's corner 0 in magenta, the
+projected ground position in metres, or `no tag` in red. The detector draws
+this view only while something subscribes. The magenta arrow
+**Tag detection (camera)** is `/uav1/target/observation`, beside the robot's
+ground-truth axes, so projection error is visible directly.
+
+Without RViz, open the Gazebo GUI (`./scripts/dev gui`), add **Image Display**
+from the plugin menu (⋮, top right) and pick `/uav1/camera/image_raw`; it shows
+the raw camera only. `./scripts/dev mpc --record-cameras` saves raw camera video
+to `runs/<run-id>/cameras/`.
+
 ### Edit the running scene
 
 Change the target, UAV position and obstacles without restarting Gazebo:

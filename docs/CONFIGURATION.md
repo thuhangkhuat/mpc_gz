@@ -116,6 +116,13 @@ diagonal. Every generated world draws a
 yellow visual-only ground strip just outside `xlim`/`ylim` to show the map
 bounds; it has no collision and the horizontal LiDAR does not see it.
 
+[dense50_1uav.yaml](../ros_ws/src/solo_mpc/scenarios/dense50_1uav.yaml)
+(selected by the checked-out `.env`) uses the same map, start and target with
+larger, denser obstacles: 60 of them, half 50 cm diameter poles and half
+60 × 60 cm boxes, one per cell of an 8 × 8 grid (6.25 m cells) jittered by up to
+1.2 m. Cells near the UAV start, the target and the ground robot spawn are
+empty; obstacles are at least 3.3 m apart and five lie on the straight diagonal.
+
 [soccer_1uav.yaml](../ros_ws/src/solo_mpc/scenarios/soccer_1uav.yaml) uses a
 soccer-pitch-sized 105 × 68 m field with 40 small obstacles: poles (0.15 m
 radius), masts (0.3 m), narrow frames and 1 m boxes, at least 2.5 m apart. One
