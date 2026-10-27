@@ -51,6 +51,22 @@ def load(value, bounds=None):
         raise ValueError("ground_robot tag (with its white margin) must fit on the body top")
     _positive(teleop, ("max_linear", "max_angular", "linear_step", "angular_step",
                        "linear_accel", "angular_accel", "rate"), "teleop")
+    auto = data.get("auto")
+    if auto is not None:
+        if auto.get("mode") not in ("random", "patrol"):
+            raise ValueError("ground_robot auto.mode must be random or patrol")
+        _positive(auto, ("speed", "lookahead", "clearance", "goal_tolerance", "min_leg"), "auto")
+        points = auto.get("waypoints", [])
+        if auto["mode"] == "patrol" and (not isinstance(points, list) or len(points) < 2 or not all(
+                isinstance(p, list) and len(p) == 2 and all(isinstance(v, (int, float)) for v in p)
+                for p in points)):
+            raise ValueError("ground_robot auto.waypoints needs at least two [x, y] points for patrol")
+        if bounds is not None and any(not (bounds[0] <= x <= bounds[2] and bounds[1] <= y <= bounds[3])
+                                      for x, y in (points or [])):
+            raise ValueError("ground_robot auto.waypoints must lie inside the scenario xlim/ylim")
+        seed = auto.get("seed")
+        if seed is not None and (isinstance(seed, bool) or not isinstance(seed, int)):
+            raise ValueError("ground_robot auto.seed must be an integer or null")
     return data
 
 

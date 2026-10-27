@@ -98,9 +98,38 @@ DEFAULTS = dict(
 )
 
 
+def merged(base, override):
+    """Deep merge: mappings combine key by key, other values in override win."""
+    out = dict(base)
+    for key, value in override.items():
+        out[key] = merged(out[key], value) if isinstance(value, dict) and isinstance(out.get(key), dict) \
+            else value
+    return out
+
+
+def read_settings(path, depth=0):
+    """Settings YAML, applied on top of the file named by its optional `base:` key.
+
+    Relative `base` and `ground_robot` paths are resolved against the file that
+    names them, so a variant file can live next to its base.
+    """
+    path = Path(path).resolve()
+    data = yaml.safe_load(path.read_text()) or {}
+    robot = data.get("ground_robot")
+    if isinstance(robot, str) and not Path(robot).is_absolute():
+        data["ground_robot"] = str(path.parent / robot)
+    base = data.pop("base", None)
+    if base is None:
+        return data
+    if depth >= 4:
+        raise ValueError(f"settings base chain is too deep at {path}")
+    base = Path(base) if Path(base).is_absolute() else path.parent / base
+    return merged(read_settings(base, depth + 1), data)
+
+
 def load_settings(scenario_path, settings_path):
     scenario = yaml.safe_load(Path(scenario_path).read_text())
-    settings = yaml.safe_load(Path(settings_path).read_text())
+    settings = read_settings(settings_path)
     cfg = {**DEFAULTS, **scenario.get("params", {}), **settings.get("params", {})}
     overrides = {**scenario.get("params", {}), **settings.get("params", {})}
     cfg["TIMESTEP"] = float(settings["control_period"])
@@ -118,9 +147,7 @@ def load_settings(scenario_path, settings_path):
     )
     robot = settings.get("ground_robot")
     if robot is not None:
-        # A path is relative to the settings file; run snapshots embed the mapping.
-        if isinstance(robot, str) and not Path(robot).is_absolute():
-            robot = Path(settings_path).resolve().parent / robot
+        # read_settings made a path absolute; run snapshots embed the mapping.
         settings["ground_robot"] = ground_robot.load(robot, cfg["WORLD_BOUNDS"])
     derived = dict(
         INFLATE_RADIUS=cfg["ROBOT_RADIUS"] + cfg["INFLATE_MARGIN"],

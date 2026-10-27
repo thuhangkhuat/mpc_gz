@@ -54,7 +54,7 @@ Usage: ./scripts/dev COMMAND [arguments]
   shell                          Bash inside simulation container
   gui                            Gazebo GUI client; server keeps running on GUI exit
   rviz [CONFIG]                  RViz: scan, corridor, paths (default /workspace/config/solo_mpc.rviz)
-  drive [--config PATH]          Drive the AprilTag ground robot from the keyboard
+  drive [--auto] [--config PATH] Drive the AprilTag ground robot: keyboard, or autonomous with --auto
   scene target X Y               Fix the target at X Y in the running simulation
   scene drone X Y [--uav NAME]   Fly a UAV to X Y during a mission (moves the target there)
   scene obstacle add circle X Y R | add box X Y W D | remove NAME | clear | list | save

@@ -2,6 +2,7 @@
 
 import copy
 import importlib.util
+import math
 from pathlib import Path
 
 import numpy as np
@@ -80,3 +81,66 @@ def test_rendered_tag_is_detected_with_its_centre(mirrored):
     expected = (left + (tag.shape[1] - 1) / 2, top + (tag.shape[0] - 1) / 2)
     assert centre == pytest.approx(expected, abs=1.5)
     assert apriltag.detect(frame, "tag36h11", CONFIG["tag"]["id"] + 1) is None
+
+
+def autopilot_run(tmp_path, mode="random"):
+    import json
+
+    from solo_mpc.settings import load_settings
+
+    scenario_path = ROOT / "ros_ws/src/solo_mpc/scenarios/dense50_1uav.yaml"
+    _, settings, cfg = load_settings(scenario_path, ROOT / "config/drone.yaml")
+    (tmp_path / "scenario.yaml").write_text(scenario_path.read_text())
+    (tmp_path / "mpc-config.json").write_text(json.dumps({"WORLD_BOUNDS": cfg["WORLD_BOUNDS"]}))
+    robot = copy.deepcopy(settings["ground_robot"])
+    robot["auto"]["mode"] = mode
+    return robot
+
+
+def test_planned_path_keeps_the_inflated_clearance(tmp_path):
+    from solo_mpc import robot_autopilot
+
+    robot = autopilot_run(tmp_path)
+    pilot = drive.Autopilot(robot, tmp_path, log=lambda _: None)
+    grid = pilot.grid()
+    path = robot_autopilot.plan(grid, robot["spawn"][:2], [45.0, 45.0])
+    assert path and np.allclose(path[0], robot["spawn"][:2]) and np.allclose(path[-1], [45, 45], atol=0.2)
+    for a, b in zip(path, path[1:]):
+        for t in np.linspace(0, 1, 50):
+            point = np.add(a, np.subtract(b, a) * t)
+            assert robot_autopilot.nearest_surface(grid.shapes, point) > pilot.inflate - grid.resolution
+
+
+def test_pursuit_turns_toward_the_path_and_stops_at_the_goal():
+    from solo_mpc import robot_autopilot
+
+    path = [[0, 0], [0, 5]]  # straight north
+    linear, angular, done = robot_autopilot.pursuit((0, 0, 0), path, 0.4, 0.8, 1.0, 0.3)
+    assert linear == 0 and angular > 0 and not done          # facing east: turn left in place
+    linear, angular, _ = robot_autopilot.pursuit((0.2, 1, math.pi / 2), path, 0.4, 0.8, 1.0, 0.3)
+    assert 0 < linear <= 0.4 and angular > 0                  # right of the path: steer left
+    assert robot_autopilot.pursuit((0, 4.9, math.pi / 2), path, 0.4, 0.8, 1.0, 0.3)[2]
+
+
+@pytest.mark.parametrize("mode", ["random", "patrol"])
+def test_autopilot_drives_a_unicycle_to_its_goals_without_touching_obstacles(tmp_path, mode):
+    from solo_mpc import robot_autopilot
+
+    robot = autopilot_run(tmp_path, mode)
+    pilot = drive.Autopilot(robot, tmp_path, log=lambda _: None)
+    teleop = drive.Teleop.from_config(robot)
+    x, y, yaw = robot["spawn"][0], robot["spawn"][1], math.radians(robot["spawn"][2])
+    half = math.hypot(robot["body"]["length"], robot["body"]["width"]) / 2
+    shapes, dt, reached, goals = pilot.grid().shapes, 1 / teleop.rate, 0, set()
+    for k in range(int(900 / dt)):
+        had_path = pilot.path is not None  # command() clears the path on arrival
+        teleop.target_linear, teleop.target_angular = pilot.command((x, y, yaw), k * dt, teleop)
+        if pilot.goal is not None:
+            goals.add(tuple(np.round(pilot.goal, 2)))
+        linear, angular = teleop.step(dt)
+        x, y, yaw = x + linear * math.cos(yaw) * dt, y + linear * math.sin(yaw) * dt, yaw + angular * dt
+        assert robot_autopilot.nearest_surface(shapes, (x, y)) > half
+        reached += had_path and pilot.path is None
+        if reached >= 3:
+            break
+    assert reached >= 3 and len(goals) >= 3

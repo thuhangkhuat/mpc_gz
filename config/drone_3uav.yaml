@@ -1,0 +1,24 @@
+# Three 3DR Solo-like UAVs tracking the AprilTag ground robot. Every flight,
+# sensor, MPC and ArduPilot setting comes from drone.yaml; only the fleet and
+# the formation-specific values below differ. Select this file as both
+# FLEET_CONFIG and MPC_SETTINGS, with scenarios/dense50_3uav.yaml.
+base: drone.yaml
+
+schema_version: 1
+world_name: solo_3uav   # MPC runs use the scenario world_name
+uavs:                   # SITL instance i: MAVLink TCP 5760+10i, JSON UDP 9002+10i
+  - name: uav1
+    instance: 0
+    sysid: 1
+    spawn: [4, 1, 0.195, 0, 0, 90]  # MPC runs take x, y from scenario starts
+  - name: uav2
+    instance: 1
+    sysid: 2
+    spawn: [1, 1, 0.195, 0, 0, 90]
+  - name: uav3
+    instance: 2
+    sysid: 3
+    spawn: [7, 1, 0.195, 0, 0, 90]
+
+# Three parallel workers share the CPU; give startup and phases more room.
+controller_worker_timeout_wall: 1.5

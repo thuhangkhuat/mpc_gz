@@ -25,3 +25,13 @@ teleop:               # keyboard drive limits (./scripts/dev drive)
   linear_accel: 0.5   # m/s^2 ramp toward the requested speed
   angular_accel: 2.0  # rad/s^2
   rate: 20            # Hz command stream
+
+auto:                 # autonomous driving (./scripts/dev drive --auto)
+  mode: random        # random: free goals anywhere on the map; patrol: loop through waypoints
+  waypoints: [[10, 5], [40, 8], [42, 40], [8, 42]]  # patrol order, world metres
+  speed: 0.35         # m/s cruise; also capped by teleop.max_linear
+  lookahead: 0.8      # m, pure-pursuit lookahead along the planned path
+  clearance: 0.4      # m kept from obstacle surfaces, beyond the body half-diagonal
+  goal_tolerance: 0.5 # m
+  min_leg: 10         # m, random goals are at least this far from the robot
+  seed: 0             # random goal sequence; null for a new sequence each run

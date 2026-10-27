@@ -97,11 +97,43 @@ Drive the robot from a second terminal while a simulation runs:
 ./scripts/dev drive            # w/x faster/slower, a/d turn, s straight, space stop, q quit
 ```
 
-Teleop limits are read when `drive` starts, so edit them and restart `drive`
-without restarting the simulation. Quitting always sends a stop. The robot is
+`./scripts/dev drive --auto` drives by itself with the `auto:` section instead:
+the robot knows the run's obstacles (scenario plus live ones, reloaded at each
+plan), inflates them by its body half-diagonal plus `clearance`, plans with A*
+on a 0.2 m grid and follows the path with pure pursuit at `speed`. The lookahead
+never passes the end of the segment being followed, so it turns at corners
+instead of cutting toward the obstacle inside them. `mode: random` picks free
+goals at least `min_leg` away (`seed` makes the sequence repeatable);
+`mode: patrol` loops through `waypoints`. Six seconds without 0.15 m of progress
+replans, then picks a new goal. Teleop limits and ramps still apply.
+
+Teleop and auto values are read when `drive` starts, so edit them and restart
+`drive` without restarting the simulation. Quitting always sends a stop. The robot is
 lower than the LiDAR plane, so it is not a planning obstacle; it can still
 push into scenario obstacles, so drive around them. `./scripts/dev scene target
 X Y` (or RViz 2D Goal Pose) teleports the robot.
+
+### Three UAVs
+
+[drone_3uav.yaml](../config/drone_3uav.yaml) lists three UAVs and sets
+`base: drone.yaml`, so every flight, sensor, MPC and ArduPilot value still comes
+from `drone.yaml`; it overrides only the fleet and
+`controller_worker_timeout_wall`. A settings file with `base:` is deep-merged
+over its base (mappings such as `params` combine key by key); relative paths
+resolve against the file that names them.
+[dense50_3uav.yaml](../ros_ws/src/solo_mpc/scenarios/dense50_3uav.yaml) uses the
+dense map with starts `[4, 1]`, `[1, 1]` and `[7, 1]` (fleet order, middle first)
+and follower slots left and right of the leader. The robot spawn is 1.6 m from
+the first two UAVs, so their cameras see the tag at takeoff.
+
+```bash
+./scripts/dev mpc \
+  --fleet /workspace/config/drone_3uav.yaml \
+  --settings /workspace/config/drone_3uav.yaml \
+  --scenario /workspace/ros_ws/src/solo_mpc/scenarios/dense50_3uav.yaml
+```
+
+The RViz config shows `uav1`; add displays for `uav2`/`uav3` topics as needed.
 
 ### Maps
 

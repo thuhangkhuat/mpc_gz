@@ -226,6 +226,42 @@ def test_drone_config_is_both_fleet_and_controller_settings():
     assert env['FLEET_CONFIG'] == env['MPC_SETTINGS'] == '/workspace/config/drone.yaml'
 
 
+def test_three_uav_drone_file_inherits_everything_but_the_fleet():
+    import numpy as np
+    from solo_mpc.settings import load_settings
+
+    pkg = ROOT / 'ros_ws/src/solo_mpc'
+    fleet = load_config(ROOT / 'config/drone_3uav.yaml')
+    assert [(u['name'], u['instance'], u['sysid']) for u in fleet['uavs']] == [
+        ('uav1', 0, 1), ('uav2', 1, 2), ('uav3', 2, 3)]
+    scenario, settings, cfg = load_settings(pkg / 'scenarios/dense50_3uav.yaml', ROOT / 'config/drone_3uav.yaml')
+    _, single, single_cfg = load_settings(pkg / 'scenarios/dense50_1uav.yaml', ROOT / 'config/drone.yaml')
+    assert settings['controller_worker_timeout_wall'] == 1.5
+    for key in ('params', 'sitl_params', 'ground_robot', 'camera_hfov', 'target_mode', 'flight_altitude'):
+        assert settings[key] == single[key], key
+    assert cfg['GRID_CELLS'] == [[-1, 0], [1, 0]] and single_cfg['GRID_CELLS'] == []
+    starts = np.asarray(scenario['starts'])[:, :2]
+    footprint = settings['flight_altitude'] * np.tan(settings['camera_hfov'] / 2)
+    spawn = np.asarray(settings['ground_robot']['spawn'][:2])
+    # At least one camera sees the tag at takeoff, so MPC can start.
+    assert np.any(np.all(np.abs(starts - spawn) < footprint, axis=1))
+    assert scenario['obstacles'] == yaml.safe_load((pkg / 'scenarios/dense50_1uav.yaml').read_text())['obstacles']
+
+
+def test_settings_base_merges_nested_sections(tmp_path):
+    from solo_mpc.settings import read_settings
+
+    (tmp_path / 'base.yaml').write_text(yaml.safe_dump(
+        {'a': 1, 'params': {'VMAX': 0.7, 'UMAX': 1.0}, 'ground_robot': 'robot.yaml'}))
+    (tmp_path / 'child.yaml').write_text(yaml.safe_dump({'base': 'base.yaml', 'params': {'VMAX': 0.5}}))
+    merged = read_settings(tmp_path / 'child.yaml')
+    assert merged['params'] == {'VMAX': 0.5, 'UMAX': 1.0} and merged['a'] == 1
+    assert merged['ground_robot'] == str(tmp_path / 'robot.yaml')
+    (tmp_path / 'loop.yaml').write_text(yaml.safe_dump({'base': 'loop.yaml'}))
+    with pytest.raises(ValueError, match='too deep'):
+        read_settings(tmp_path / 'loop.yaml')
+
+
 def test_rejects_mismatched_start_and_controller_altitudes(tmp_path):
     from solo_mpc.settings import load_settings
 
