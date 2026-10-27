@@ -86,3 +86,17 @@ def test_backing_after_path_flip_is_attributed(tmp_path):
     vehicle = analyze_run.analyze(tmp_path)["vehicles"]["uav1"]
     assert vehicle["path_flips"] == 1
     assert vehicle["backing_after"] == {"path flip": 1}
+
+
+def test_cpu_timeouts_report_cold_starts(tmp_path):
+    write_run(tmp_path)
+    rows = [json.loads(l) for l in (tmp_path / "mpc.jsonl").read_text().splitlines()]
+    for k in (100, 101, 150):
+        rows[k]["vehicles"]["uav1"].update(result="mpc_failed", solver_status="Maximum_CpuTime_Exceeded")
+    for row in rows:
+        row["vehicles"]["uav1"]["corridor_used_faces"] = 5
+    (tmp_path / "mpc.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+    vehicle = analyze_run.analyze(tmp_path)["vehicles"]["uav1"]
+    assert vehicle["cpu_timeouts"]["count"] == 3
+    assert vehicle["cpu_timeouts"]["right_after_failure"] == 1  # 101 follows 100
+    assert vehicle["corridor_used_faces"]["max"] == 5

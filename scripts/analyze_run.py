@@ -92,6 +92,11 @@ def analyze(run):
         target = [r.get("target_estimate") for _, _, r in rows]
         statuses = Counter(v["solver_status"] for _, v, _ in rows if v.get("solver_status"))
         iterations = [v["solver_iterations"] for _, v, _ in rows if v.get("solver_iterations") is not None]
+        faces = [v["corridor_used_faces"] for _, v, _ in rows if v.get("corridor_used_faces") is not None]
+        timeouts = [k for k, (_, v, _) in enumerate(rows) if v.get("solver_status") == "Maximum_CpuTime_Exceeded"]
+        ok = {"search", "tracking"}
+        after_failure = sum(k > 0 and rows[k - 1][1]["result"] not in ok for k in timeouts)
+        near = [nearest(shapes, rows[k][1]["position"][:2]) for k in timeouts]
         # Grid-path bearing turning > 90 deg within 1 s: the planner switched sides.
         headings = [(t, v["path_heading"]) for t, v, _ in rows if v.get("path_heading") is not None]
         flips = []
@@ -169,6 +174,11 @@ def analyze(run):
             "solver_iterations": {"p50": percentile(iterations, 50), "p95": percentile(iterations, 95),
                                   "max": max(iterations, default=None)},
             "path_flips": len(flips),
+            "corridor_used_faces": {"p50": percentile(faces, 50), "p95": percentile(faces, 95),
+                                    "max": max(faces, default=None)},
+            "cpu_timeouts": {"count": len(timeouts), "right_after_failure": after_failure,
+                             "median_obstacle_m": percentile(near, 50),
+                             "within_1m_of_obstacle": sum(d < 1.0 for d in near)},
             "stops_away_from_target": stops,
             "min_body_clearance_m": min((c for _, c in body), default=None),
             "body_contact_samples": sum(c <= 0 for _, c in body),
@@ -211,6 +221,13 @@ def show(report):
         if it["p50"] is not None:
             print(f"solver iterations: p50 {it['p50']:.0f}, p95 {it['p95']:.0f}, max {it['max']}")
         print(f"grid path flips (> 90 deg within 1 s): {v['path_flips']}")
+        f = v["corridor_used_faces"]
+        if f["p50"] is not None:
+            print(f"corridor faces used: p50 {f['p50']:.0f}, p95 {f['p95']:.0f}, max {f['max']}")
+        c = v["cpu_timeouts"]
+        if c["count"]:
+            print(f"CPU timeouts: {c['count']}, {c['right_after_failure']} right after a failed cycle (cold start); "
+                  f"median obstacle {c['median_obstacle_m']:.2f} m, {c['within_1m_of_obstacle']} within 1 m")
         if v["setpoint_time_s"]:
             print("setpoint time (s):", ", ".join(f"{k} {t}" for k, t in v["setpoint_time_s"].items()))
         else:

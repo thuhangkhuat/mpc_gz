@@ -319,6 +319,7 @@ class TeamController(FleetGuidance):
         except Exception as exc:
             return self._fallback(n, state, stamp, f"corridor_failed: {exc}", **metrics)
         metrics["corridor_ms"] = (time.perf_counter() - started) * 1000
+        metrics["corridor_used_faces"] = faces
         x0 = np.r_[state.position[:2], state.velocity[:2], state.acceleration[:2]]
         X, U = self.warm.get(n, (np.tile(x0, (H + 1, 1)), np.zeros((H, 2))))
         others = [k for k in self.names if k != n]
