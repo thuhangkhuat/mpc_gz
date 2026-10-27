@@ -152,7 +152,7 @@ def test_world_marks_map_bounds_without_collision(tmp_path, upstream):
                                    tmp_path / 'world.sdf', pkg / 'scenarios/square50_1uav.yaml',
                                    pkg / 'config/controller_solo.yaml')
     world = ET.parse(output).getroot().find('world')
-    assert world.find("model[@name='uav1']/pose").text.split()[:2] == ['0', '0']
+    assert world.find("model[@name='uav1']/pose").text.split()[:2] == ['1', '1']
     strips = world.find("model[@name='field_boundary']")
     assert strips.find('.//collision') is None
     edges = {}
@@ -162,8 +162,8 @@ def test_world_marks_map_bounds_without_collision(tmp_path, upstream):
         assert z + sz / 2 <= 0.01
         edges[visual.get('name')] = (x, y, sx, sy)
     # Each strip lies just outside its edge and spans the full side.
-    assert edges['south'][1] < -25 and edges['north'][1] > 25
-    assert edges['west'][0] < -25 and edges['east'][0] > 25
+    assert edges['south'][1] < 0 and edges['north'][1] > 50
+    assert edges['west'][0] < 0 and edges['east'][0] > 50
     assert edges['south'][2] >= 50 and edges['west'][3] >= 50
 
 

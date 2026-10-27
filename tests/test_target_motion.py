@@ -66,7 +66,7 @@ def test_single_waypoint_is_a_fixed_target():
 
 
 @pytest.mark.parametrize('name,xlim,ylim', [('soccer_1uav', [0, 105], [0, 68]),
-                                            ('square50_1uav', [-25, 25], [-25, 25])])
+                                            ('square50_1uav', [0, 50], [0, 50])])
 def test_single_uav_scenario_crosses_field_to_fixed_target(name, xlim, ylim):
     scenario, settings, cfg = load_settings(PKG / f'scenarios/{name}.yaml',
                                             PKG / 'config/controller_solo.yaml')

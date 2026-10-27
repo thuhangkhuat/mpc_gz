@@ -101,8 +101,8 @@ Visualization Manager:
       Target Frame: <Fixed Frame>
       Angle: 0
       Scale: 15
-      X: 0
-      Y: 0
+      X: 25  # centre of the 50 x 50 m map
+      Y: 25
 Window Geometry:
   Width: 1400
   Height: 900

@@ -1,49 +1,54 @@
-# 50 x 50 m map centred on the world origin, one UAV starting at (0, 0), fixed target.
+# 50 x 50 m map with one corner at the world origin: x and y in [0, 50]. In the
+# default Gazebo view (looking along +X, +Y to the left) the origin is the
+# bottom-right corner. One UAV starts at (1, 1); fixed target near the far corner.
 # A yellow ground strip marks the map bounds (visual only, no wall).
 # Obstacles are small: poles (0.15 m radius), masts (0.3 m), narrow frames and
-# 1 m boxes, extruded to the controller's obstacle_height. Layout generated once
-# with a fixed seed: at least 2.5 m between obstacles, 5 m clear of start and
-# target, 2 m inside the bounds.
+# 1 m boxes, extruded to the controller's obstacle_height. Spread evenly: one per
+# cell of a 10 m grid, jittered by up to 1.5 m with a fixed seed; cells within
+# 5 m of the start or target are left empty.
 # Run: ./scripts/dev mpc --fleet /workspace/config/fleet_1uav.yaml \
 #        --scenario /workspace/ros_ws/src/solo_mpc/scenarios/square50_1uav.yaml \
 #        --settings /workspace/ros_ws/src/solo_mpc/config/controller_solo.yaml
-description: single UAV from the origin to a fixed target on a 50 x 50 m map of small obstacles
+description: single UAV from (1, 1) to a fixed target on a 50 x 50 m map of evenly spread small obstacles
 world_name: mpc_square50
-xlim: [-25, 25]
-ylim: [-25, 25]
+xlim: [0, 50]
+ylim: [0, 50]
 viewing_radius: 1.5
 tar_max_speed: 0.6      # controller's assumed target speed bound; the target does not move
 
 starts:                 # [x, y, z], metres
-  - [0, 0, 3]
+  - [1, 1, 3]
 
 target:
   waypoints:            # a single waypoint keeps the target fixed
-    - [18, 18]
+    - [45, 45]
 
 obstacles:
   rects:                # [left, bottom, width, height]
-    - [-19.5, 3.5, 0.4, 1.6]
-    - [-8.6, -11.1, 1.0, 1.0]
-    - [5.2, 0.2, 1.0, 1.0]
+    - [44.8, 5.2, 1.0, 1.0]
+    - [13.9, 13.0, 1.0, 1.0]
+    - [23.6, 14.2, 1.6, 0.4]
+    - [24.9, 24.0, 1.6, 0.4]
+    - [43.2, 35.5, 1.6, 0.4]
+    - [6.1, 43.3, 0.4, 1.6]
+    - [26.2, 45.1, 0.4, 1.6]
   circles:              # [center_x, center_y, radius]
-    - [-21.2, -9.1, 0.30]
-    - [-20.9, 14.9, 0.15]
-    - [-16.4, 10.5, 0.15]
-    - [-8.0, -18.1, 0.15]
-    - [-0.3, 15.5, 0.15]
-    - [1.4, 8.4, 0.15]
-    - [4.5, 4.5, 0.30]
-    - [6.7, 8.0, 0.15]
-    - [8.9, 2.3, 0.15]
-    - [10.3, 7.2, 0.15]
-    - [11.7, 9.8, 0.15]
-    - [11.7, 14.1, 0.15]
-    - [13.4, -13.6, 0.15]
-    - [14.7, 13.7, 0.15]
-    - [14.8, 8.5, 0.15]
-    - [15.2, 3.9, 0.15]
-    - [19.4, -7.0, 0.15]
+    - [13.8, 4.8, 0.15]
+    - [34.7, 5.1, 0.15]
+    - [24.0, 5.7, 0.15]
+    - [45.6, 14.6, 0.15]
+    - [4.4, 15.4, 0.30]
+    - [34.9, 15.8, 0.15]
+    - [15.4, 24.4, 0.30]
+    - [35.5, 26.0, 0.15]
+    - [45.8, 26.1, 0.15]
+    - [5.5, 26.3, 0.15]
+    - [26.1, 34.3, 0.30]
+    - [6.0, 34.7, 0.15]
+    - [34.7, 35.3, 0.15]
+    - [13.9, 35.6, 0.15]
+    - [34.6, 43.8, 0.15]
+    - [16.4, 45.4, 0.30]
 
 params:
   GRID_RESOLUTION: 0.15

@@ -4,4 +4,4 @@ uavs:
   - name: uav1
     instance: 0
     sysid: 1
-    spawn: [0, 0, 0.195, 0, 0, 90]
+    spawn: [1, 1, 0.195, 0, 0, 90]
