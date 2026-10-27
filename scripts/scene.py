@@ -5,6 +5,7 @@
   obstacle add circle X Y R      Pole of radius R centred at (X, Y)
   obstacle add box X Y W D       Box W (along X) by D (along Y) centred at (X, Y)
   obstacle remove NAME | clear | list
+  obstacle save                  Append unsaved live obstacles to the run's scenario file
 
 Coordinates are world metres. Obstacles get the run's obstacle_height. Drone
 repositioning flies with MPC while a mission runs; it never teleports the
@@ -14,7 +15,9 @@ vehicle, which would invalidate the ArduPilot estimator and frame alignment.
 import argparse
 import json
 import math
+import os
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -106,23 +109,58 @@ def drone(ros, cfg, args):
     raise SystemExit(f"{name} did not arrive within {args.timeout:g} s")
 
 
+def save(scene_edit):
+    """Overwrite the scenario selected for this run; the run keeps its launch copy."""
+    from solo_mpc.settings import load_settings
+
+    path = Path(os.environ.get("MPC_SCENARIO", ""))
+    if not path.is_file() or Path("/workspace") not in path.resolve().parents:
+        raise SystemExit(f"Scenario {path} is not a writable checkout file under /workspace")
+    obstacles = scene_edit.load(RUN)
+    rects, circles = scene_edit.scenario_entries(obstacles)
+    if not rects and not circles:
+        print("No unsaved live obstacles")
+        return
+    before = yaml.safe_load(path.read_text())["obstacles"]
+    text = scene_edit.append_to_scenario(path.read_text(), rects, circles)
+    after = yaml.safe_load(text)["obstacles"]
+    if (after.get("rects") or []) != (before.get("rects") or []) + rects or (
+            after.get("circles") or []) != (before.get("circles") or []) + circles:
+        raise SystemExit("Scenario layout not recognized; add the obstacles by hand")
+    with tempfile.NamedTemporaryFile("w", suffix=".yaml", dir=RUN, delete=False) as handle:
+        handle.write(text)
+    try:
+        load_settings(handle.name, RUN / "controller.yaml")
+    finally:
+        os.unlink(handle.name)
+    path.write_text(text)
+    for data in obstacles.values():
+        data["saved"] = True
+    scene_edit.save(RUN, obstacles)
+    print(f"Saved {len(rects)} box(es) and {len(circles)} circle(s) to {path}")
+    print(f"Original kept as {RUN / 'scenario.yaml'}; restart the simulation to load them as scenario obstacles")
+
+
 def obstacle(ros, cfg, world, settings, args):
     from gz.transport13 import Node as GazeboNode
     from solo_mpc import scene_edit
 
+    if args.action == "save":
+        save(scene_edit)
+        return
     gz = GazeboNode()
     if args.action == "list":
         for name, data in sorted(scene_edit.load(RUN).items()):
-            print(f"{name}: {data['shape']} at ({data['x']}, {data['y']}) size {data['size']}")
+            saved = " (saved to scenario)" if data.get("saved") else ""
+            print(f"{name}: {data['shape']} at ({data['x']}, {data['y']}) size {data['size']}{saved}")
         return
-    if args.action == "clear":
-        for name in sorted(scene_edit.load(RUN)):
+    names = sorted(scene_edit.load(RUN)) if args.action == "clear" else args.values[:1]
+    if args.action in ("clear", "remove"):
+        registry = scene_edit.load(RUN)
+        for name in names:
             scene_edit.remove(gz, world, RUN, name)
-            print(f"Removed {name}")
-        return
-    if args.action == "remove":
-        scene_edit.remove(gz, world, RUN, args.values[0])
-        print(f"Removed {args.values[0]}")
+            note = "; it remains in the scenario file" if registry.get(name, {}).get("saved") else ""
+            print(f"Removed {name} from Gazebo{note}")
         return
     shape, numbers = args.values[0], args.values[1:]
     sizes = {"circle": 1, "box": 2}
@@ -160,8 +198,8 @@ def main(argv=None):
     move.add_argument("y", type=float)
     move.add_argument("--uav")
     move.add_argument("--timeout", type=float, default=120.0)
-    obs = sub.add_parser("obstacle", help="add, remove, clear or list live obstacles")
-    obs.add_argument("action", choices=["add", "remove", "clear", "list"])
+    obs = sub.add_parser("obstacle", help="add, remove, clear, list or save live obstacles")
+    obs.add_argument("action", choices=["add", "remove", "clear", "list", "save"])
     obs.add_argument("values", nargs="*")
     obs.add_argument("--force", action="store_true", help="skip UAV/target clearance checks")
     args = parser.parse_args(argv)

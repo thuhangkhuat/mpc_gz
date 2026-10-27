@@ -44,3 +44,45 @@ def test_clearance_to_circle_and_box_footprints():
 def test_only_live_obstacles_can_be_removed(tmp_path):
     with pytest.raises(ValueError, match="live obstacles"):
         scene_edit.remove(None, "w", tmp_path, "obstacle_circle_0")
+
+
+def test_scenario_entries_convert_centres_and_skip_saved():
+    obstacles = {
+        "live_obstacle_0": {"shape": "box", "x": 8.0, "y": -2.0, "size": [1.6, 0.4]},
+        "live_obstacle_1": {"shape": "circle", "x": 5.0, "y": 5.0, "size": [0.3]},
+        "live_obstacle_2": {"shape": "circle", "x": 1.0, "y": 1.0, "size": [0.3], "saved": True},
+    }
+    assert scene_edit.scenario_entries(obstacles) == ([[7.2, -2.2, 1.6, 0.4]], [[5.0, 5.0, 0.3]])
+
+
+def test_append_keeps_comments_and_validates(tmp_path):
+    from pathlib import Path
+
+    import yaml
+
+    from solo_mpc.settings import load_settings
+
+    pkg = Path(__file__).resolve().parents[1] / "ros_ws/src/solo_mpc"
+    original = (pkg / "scenarios/square50_1uav.yaml").read_text()
+    text = scene_edit.append_to_scenario(original, [[20.0, 40.0, 1.0, 1.0]], [[40.5, 20.5, 0.15]])
+    before, after = yaml.safe_load(original), yaml.safe_load(text)
+    assert after["obstacles"]["rects"] == before["obstacles"]["rects"] + [[20, 40, 1, 1]]
+    assert after["obstacles"]["circles"] == before["obstacles"]["circles"] + [[40.5, 20.5, 0.15]]
+    assert {k: v for k, v in after.items() if k != "obstacles"} == {
+        k: v for k, v in before.items() if k != "obstacles"}
+    kept = [line for line in original.splitlines() if line.lstrip().startswith("#")]
+    assert all(line in text.splitlines() for line in kept)
+    path = tmp_path / "scenario.yaml"
+    path.write_text(text)
+    load_settings(path, pkg / "config/controller_solo.yaml")
+
+
+def test_append_fills_empty_lists():
+    text = "obstacles:\n  rects: []  # none\n  circles: []\nparams: {}\n"
+    out = yaml_load(scene_edit.append_to_scenario(text, [[0, 0, 1, 1]], [[2, 2, 0.5]]))
+    assert out == {"obstacles": {"rects": [[0, 0, 1, 1]], "circles": [[2, 2, 0.5]]}, "params": {}}
+
+
+def yaml_load(text):
+    import yaml
+    return yaml.safe_load(text)

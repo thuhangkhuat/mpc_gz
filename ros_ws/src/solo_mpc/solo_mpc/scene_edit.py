@@ -94,3 +94,52 @@ def clearance(shape, x, y, size, point):
         return math.hypot(px, py) - size[0]
     dx, dy = max(abs(px) - size[0] / 2, 0.0), max(abs(py) - size[1] / 2, 0.0)
     return math.hypot(dx, dy)
+
+
+def scenario_entries(obstacles):
+    """Scenario rows for unsaved live obstacles: rects [left, bottom, w, h], circles [x, y, r]."""
+    rects, circles = [], []
+    for name in sorted(obstacles):
+        data = obstacles[name]
+        if data.get("saved"):
+            continue
+        x, y, size = data["x"], data["y"], data["size"]
+        if data["shape"] == "circle":
+            circles.append([round(x, 2), round(y, 2), round(size[0], 2)])
+        else:
+            rects.append([round(x - size[0] / 2, 2), round(y - size[1] / 2, 2),
+                          round(size[0], 2), round(size[1], 2)])
+    return rects, circles
+
+
+def append_to_scenario(text, rects, circles):
+    """Insert rows after the last item of obstacles.rects/circles, keeping comments."""
+    lines = text.splitlines(keepends=True)
+    top = next((i for i, line in enumerate(lines) if line.rstrip() == "obstacles:"), None)
+    if top is None:
+        raise ValueError("scenario has no top-level obstacles: block")
+    end = next((i for i in range(top + 1, len(lines))
+                if lines[i].strip() and not lines[i].startswith((" ", "#"))), len(lines))
+    # Later list first, so the earlier insertion index stays valid.
+    keys = sorted(((k, rows) for k, rows in (("rects", rects), ("circles", circles)) if rows),
+                  key=lambda item: -next((i for i in range(top, end)
+                                          if lines[i].lstrip().startswith(f"{item[0]}:")), end))
+    for key, rows in keys:
+        head = next((i for i in range(top + 1, end) if lines[i].lstrip().startswith(f"{key}:")), None)
+        if head is None:
+            raise ValueError(f"scenario obstacles has no {key}: list")
+        indent = len(lines[head]) - len(lines[head].lstrip())
+        item = " " * (indent + 2)
+        new = [f"{item}- [{', '.join(f'{v:g}' for v in row)}]  # live\n" for row in rows]
+        if lines[head].split(":", 1)[1].split("#")[0].strip() == "[]":
+            lines[head] = f"{' ' * indent}{key}:\n"
+            last = head
+        else:
+            last = head
+            for i in range(head + 1, end):
+                if lines[i].startswith(item + "-"):
+                    last = i
+                elif lines[i].strip() and not lines[i].lstrip().startswith("#"):
+                    break
+        lines[last + 1:last + 1] = new
+    return "".join(lines)

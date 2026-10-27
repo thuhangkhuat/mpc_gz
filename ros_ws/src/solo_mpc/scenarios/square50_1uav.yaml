@@ -3,9 +3,9 @@
 # bottom-right corner. One UAV starts at (1, 1); fixed target near the far corner.
 # A yellow ground strip marks the map bounds (visual only, no wall).
 # Obstacles are small: poles (0.15 m radius), masts (0.3 m), narrow frames and
-# 1 m boxes, extruded to the controller's obstacle_height. Spread evenly: one per
-# cell of a 10 m grid, jittered by up to 1.5 m with a fixed seed; cells within
-# 5 m of the start or target are left empty.
+# 1 m boxes, extruded to the controller's obstacle_height. 40 obstacles spread
+# evenly: one per cell of a 7 x 6 grid (about 7.1 x 8.3 m cells), jittered by up
+# to 1.2 m with a fixed seed; the start and target corner cells are left empty.
 # Run: ./scripts/dev mpc --fleet /workspace/config/fleet_1uav.yaml \
 #        --scenario /workspace/ros_ws/src/solo_mpc/scenarios/square50_1uav.yaml \
 #        --settings /workspace/ros_ws/src/solo_mpc/config/controller_solo.yaml
@@ -25,30 +25,47 @@ target:
 
 obstacles:
   rects:                # [left, bottom, width, height]
-    - [44.8, 5.2, 1.0, 1.0]
-    - [13.9, 13.0, 1.0, 1.0]
-    - [23.6, 14.2, 1.6, 0.4]
-    - [24.9, 24.0, 1.6, 0.4]
-    - [43.2, 35.5, 1.6, 0.4]
-    - [6.1, 43.3, 0.4, 1.6]
-    - [26.2, 45.1, 0.4, 1.6]
+    - [10.3, 11.9, 1.0, 1.0]
+    - [17.5, 28.5, 1.6, 0.4]
+    - [23.6, 29.5, 1.0, 1.0]
+    - [9.9, 35.6, 0.4, 1.6]
+    - [17.8, 36.3, 0.4, 1.6]
+    - [3.1, 46.0, 1.0, 1.0]
   circles:              # [center_x, center_y, radius]
-    - [13.8, 4.8, 0.15]
-    - [34.7, 5.1, 0.15]
-    - [24.0, 5.7, 0.15]
-    - [45.6, 14.6, 0.15]
-    - [4.4, 15.4, 0.30]
-    - [34.9, 15.8, 0.15]
-    - [15.4, 24.4, 0.30]
-    - [35.5, 26.0, 0.15]
-    - [45.8, 26.1, 0.15]
-    - [5.5, 26.3, 0.15]
-    - [26.1, 34.3, 0.30]
-    - [6.0, 34.7, 0.15]
-    - [34.7, 35.3, 0.15]
-    - [13.9, 35.6, 0.15]
-    - [34.6, 43.8, 0.15]
-    - [16.4, 45.4, 0.30]
+    - [47.6, 3.5, 0.15]
+    - [24.5, 3.6, 0.15]
+    - [32.0, 4.2, 0.30]
+    - [18.6, 4.9, 0.15]
+    - [40.5, 4.9, 0.30]
+    - [10.2, 5.1, 0.15]
+    - [24.4, 11.3, 0.15]
+    - [3.8, 11.4, 0.15]
+    - [32.6, 11.8, 0.15]
+    - [18.2, 12.5, 0.15]
+    - [38.1, 13.3, 0.15]
+    - [45.9, 13.4, 0.30]
+    - [18.7, 20.5, 0.30]
+    - [23.9, 20.6, 0.15]
+    - [9.7, 20.9, 0.30]
+    - [40.4, 21.0, 0.30]
+    - [4.4, 21.2, 0.30]
+    - [46.8, 21.3, 0.15]
+    - [31.3, 21.6, 0.15]
+    - [3.4, 28.5, 0.15]
+    - [33.1, 29.3, 0.15]
+    - [45.7, 30.1, 0.30]
+    - [38.5, 30.2, 0.30]
+    - [9.7, 30.3, 0.15]
+    - [24.7, 36.4, 0.15]
+    - [3.7, 37.2, 0.15]
+    - [33.3, 37.9, 0.15]
+    - [46.6, 37.9, 0.15]
+    - [39.3, 38.4, 0.15]
+    - [39.8, 45.2, 0.15]
+    - [32.5, 46.5, 0.30]
+    - [18.5, 46.6, 0.15]
+    - [24.8, 46.6, 0.15]
+    - [9.9, 46.9, 0.15]
 
 params:
   GRID_RESOLUTION: 0.15

@@ -71,9 +71,10 @@ adjust UAV positions while following the target and avoiding obstacles.
 (selected by the checked-out `.env`) is a 50 × 50 m map with a corner at the
 world origin: `xlim`/`ylim` are `[0, 50]`, so `(0, 0)` is the bottom-right
 corner in the default Gazebo view (looking along +X, +Y to the left). The UAV
-starts at `[1, 1]` and the fixed target is at `[45, 45]`. Its 23 small obstacles
-are spread evenly, one per cell of a 10 m grid jittered by up to 1.5 m; three
-lie on the straight diagonal. Every generated world draws a
+starts at `[1, 1]` and the fixed target is at `[45, 45]`. Its 40 small obstacles
+are spread evenly, one per cell of a 7 × 6 grid (about 7.1 × 8.3 m cells)
+jittered by up to 1.2 m, at least 4.4 m apart; two lie on the straight
+diagonal. Every generated world draws a
 yellow visual-only ground strip just outside `xlim`/`ylim` to show the map
 bounds; it has no collision and the horizontal LiDAR does not see it.
 

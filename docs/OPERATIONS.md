@@ -151,6 +151,7 @@ Change the target, UAV position and obstacles without restarting Gazebo:
 ./scripts/dev scene obstacle add circle 5 5 0.3
 ./scripts/dev scene obstacle add box 8 -2 1.6 0.4   # centre X Y, width along X, depth along Y
 ./scripts/dev scene obstacle list | remove live_obstacle_0 | clear
+./scripts/dev scene obstacle save               # append them to the scenario file
 ```
 
 In RViz, **2D Goal Pose** fixes the target at the clicked point and **Publish
@@ -167,8 +168,17 @@ LiDAR, so the map learns or clears them over a few scans. `obstacle add` refuses
 positions within `SENSING_RADIUS + ROBOT_RADIUS` of a UAV, where the vehicle may
 not stop in time, or within `viewing_radius` of the target; `--force` skips
 these checks. They are listed in `runs/<run-id>/live-obstacles.yaml` and are not
-included in `scenario.yaml` or `evaluate` collision checks. Changing the
-scenario file still requires a new simulation.
+included in the run's `scenario.yaml` or `evaluate` collision checks.
+
+`obstacle save` makes them permanent: it appends every unsaved live obstacle,
+marked `# live`, to the `obstacles` lists of the scenario selected by
+`MPC_SCENARIO` (it must be a checkout file under `/workspace`). Comments and the
+rest of the file are kept, and the result must pass `load_settings` before the
+file is written. Boxes are converted from centre to `[left, bottom, width,
+height]`. The run directory's `scenario.yaml` keeps the launch-time original.
+Saved obstacles are flagged in `live-obstacles.yaml`, so saving again adds only
+new ones; removing a saved obstacle affects only the running Gazebo world. The
+next `./scripts/dev mpc` loads them as ordinary scenario obstacles.
 
 ## Logs and evaluation
 
