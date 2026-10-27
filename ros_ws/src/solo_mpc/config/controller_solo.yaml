@@ -2,7 +2,7 @@
 # Same as controller.yaml, with motion limits taken from the 3DR Solo frame
 # parameters (ArduPilot Tools/Frame_params/Solo_Copter-3.6_GreenCube.param).
 # The Gazebo airframe is still Iris (similar size and mass to a Solo).
-flight_altitude: 3.0
+flight_altitude: 2.0
 obstacle_height: 5.0
 target_height: 0.05
 camera_width: 160
@@ -55,10 +55,10 @@ params:
   INFLATE_MARGIN: 0.15
   UAV_SAFE_DISTANCE: 1.0
   COLLISION_AVOID_DISTANCE: 1.5
-  VMAX: 3.0  # Solo WPNAV_SPEED 300 cm/s
+  VMAX: 0.5  # Solo WPNAV_SPEED 300 cm/s
   UMAX: 2.5  # WPNAV_ACCEL 250 cm/s² (Solo leaves the default); below g*tan(ANGLE_MAX 20°)
   ACCEL_TAU: 0.2
-  SENSING_RADIUS: 3.0
+  SENSING_RADIUS: 6.0
   LOCAL_SEARCH: jps  # uniform step costs; dijkstra applies UNKNOWN_COST
   CONTINGENCY: true
   BACKUP_HORIZON: 25  # backup ends at rest after 2.5 s
