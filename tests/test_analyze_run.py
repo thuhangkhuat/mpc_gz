@@ -70,5 +70,6 @@ def test_counts_backing_away_from_target(tmp_path):
     (tmp_path / "mpc.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
     vehicle = analyze_run.analyze(tmp_path)["vehicles"]["uav1"]
     assert vehicle["backing_episodes"] == 1 and vehicle["backing_starts_s"] == [2.0]
+    assert vehicle["backing_after"] == {"nominal solve": 1}
     assert vehicle["over_vmax_fraction"] == 3 / 200
     assert abs(vehicle["command_tracking_error_mps"] - 0.3) < 1e-9

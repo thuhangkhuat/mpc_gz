@@ -108,7 +108,8 @@ scenario starts use z = 2):
 | `ACCEL_TAU` | 0.3 s | Solo attitude acceleration limits and FCU jerk shaping lag the command |
 | `ROBOT_RADIUS` / `INFLATE_MARGIN` | 0.40 / 0.2 m | Covers Iris prop tips in Gazebo (0.383 m) and a Solo (0.357 m) |
 | `SENSING_RADIUS` | 3 m | About twice the 1.3 m stop plus corridor margin; short rays stay usable when gusts tilt the vehicle |
-| `BACKUP_HORIZON` | 15 steps | Stop branch ends at rest within 1.5 s; shorter solves |
+| `control_period` / `HORIZON_LENGTH` / `BACKUP_HORIZON` | 0.2 s / 8 / 8 steps | 5 Hz MPC with 1.6 s prediction and stop branch; at 0.1 s IPOPT hit its CPU limit in 7% of solves on a desktop, and a Raspberry Pi is slower |
+| `ipopt.max_cpu_time` / `command_timeout_sim` | 0.15 / 0.5 s | Solve fits the period with room for mapping and planning; references expire after 2.5 periods |
 | `scan_height_tolerance` | 1.0 m | Keeps 3 m rays for tilts up to 19.5°; rays reach the ground only past 35° |
 | `arrival_timeout_sim` | 300 s | A 62 m diagonal at ≤ 0.7 m/s with detours |
 

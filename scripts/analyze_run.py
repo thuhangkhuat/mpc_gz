@@ -99,13 +99,18 @@ def analyze(run):
                                v["velocity"][:2], np.subtract(goal[:2], v["position"][:2])
                                / math.dist(v["position"][:2], goal[:2])))
                            for (_, v, _), goal in zip(rows, target)])
-        backing, begin = [], None
+        backing, backing_causes, begin = [], Counter(), None
         for i, value in enumerate(np.r_[toward, np.nan]):
             if value < -BACK_SPEED and begin is None:
                 begin = i
             elif not value < -BACK_SPEED and begin is not None:
                 if stamps[min(i, len(stamps) - 1)] - stamps[begin] >= MIN_BACK:
                     backing.append(round(float(stamps[begin] - flying[0]["stamp"]), 1))
+                    # What the controller did in the second before the reversal began.
+                    window = [rows[k][1]["result"] for k in range(len(rows))
+                              if stamps[begin] - 1.0 <= stamps[k] <= stamps[begin]]
+                    failed = [r for r in window if r not in ("search", "tracking")]
+                    backing_causes[failed[0] if failed else "nominal solve"] += 1
                 begin = None
 
         stops, start = [], None
@@ -145,6 +150,7 @@ def analyze(run):
             "command_tracking_error_mps": None if not command else float(np.mean([abs(a - b) for a, b in command])),
             "backing_episodes": len(backing),
             "backing_starts_s": backing[:50],
+            "backing_after": dict(backing_causes.most_common()),
             "solver_status": dict(statuses.most_common()),
             "stops_away_from_target": stops,
             "min_body_clearance_m": min((c for _, c in body), default=None),
@@ -179,6 +185,8 @@ def show(report):
                  else "no command_velocity logged (older run)"))
         print(f"backing away from target (> {BACK_SPEED} m/s for {MIN_BACK} s): {v['backing_episodes']} times"
               + (f", first at {v['backing_starts_s'][:8]} s" if v["backing_starts_s"] else ""))
+        if v["backing_after"]:
+            print("  preceded within 1 s by:", ", ".join(f"{k} {n}" for k, n in v["backing_after"].items()))
         print("controller results:", ", ".join(f"{k} {n}" for k, n in v["controller_results"].items()))
         if v["solver_status"]:
             print("solver status:", ", ".join(f"{k} {n}" for k, n in v["solver_status"].items()))
