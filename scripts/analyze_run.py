@@ -69,6 +69,123 @@ def reason_at(rows, stamp):
     return current
 
 
+def overlap_report(rows, names, K, width, height, plane_z, period=0.2):
+    """Shared ground area of the camera footprints on the target plane, sampled every period s."""
+    from itertools import combinations
+
+    from solo_mpc import fov
+
+    samples, last = [], -math.inf
+    for t in rows:
+        if t["stamp"] - last >= period:
+            samples.append(t)
+            last = t["stamp"]
+    pairs = {f"{a}-{b}": {"area": [], "iou": []} for a, b in combinations(names, 2)}
+    singles, unions, sums, skipped = [], [], [], 0
+    for t in samples:
+        prints = {}
+        for n in names:
+            v = t["vehicles"][n]
+            prints[n] = fov.footprint(v["position"], v.get("orientation") or fov.level(v["yaw"]),
+                                      K, width, height, plane_z)
+        if any(p is None for p in prints.values()):
+            skipped += 1
+            continue
+        areas = {n: fov.area(p) for n, p in prints.items()}
+        for a, b in combinations(names, 2):
+            shared = fov.intersection(prints[a], prints[b])
+            inter = fov.area(shared) if shared is not None else 0.0
+            pairs[f"{a}-{b}"]["area"].append(inter)
+            pairs[f"{a}-{b}"]["iou"].append(inter / (areas[a] + areas[b] - inter))
+        singles.extend(areas.values())
+        unions.append(fov.union_area(list(prints.values())))
+        sums.append(sum(areas.values()))
+    if not unions:
+        return None
+    return {
+        "samples": len(unions), "skipped_tilted": skipped,
+        "footprint_m2": float(np.mean(singles)),
+        "pairs": {k: {"overlapping_fraction": float(np.mean(np.array(v["area"]) > 1e-6)),
+                      "mean_m2": float(np.mean(v["area"])), "max_m2": float(np.max(v["area"])),
+                      "mean_iou": float(np.mean(v["iou"]))} for k, v in pairs.items()},
+        "union_m2": float(np.mean(unions)), "summed_m2": float(np.mean(sums)),
+        "shared_fraction": float(1 - np.sum(unions) / np.sum(sums)),
+    }
+
+
+def fov_report(run, settings, cfg, truth, names):
+    """Camera FOV coverage from ground truth, and detector recall/accuracy.
+
+    The target is a disc (tag circumcircle, or the marker) on its plane; it is
+    fully in view when the whole disc projects inside the image.
+    """
+    from solo_mpc import fov
+
+    rows = [t for t in truth if t.get("target") is not None]
+    if not rows:
+        return None
+    robot = settings.get("ground_robot")
+    if robot is not None:
+        from solo_mpc.ground_robot import tag_height
+        radius, height, label = robot["tag"]["size"] * math.sqrt(2) / 2, tag_height(robot), "AprilTag"
+    else:
+        radius, height, label = cfg.get("TAR_RADIUS", 0.15) * math.sqrt(2), settings["target_height"], "marker"
+    width, hfov = settings["camera_width"], settings["camera_hfov"]
+    K = fov.intrinsics(width, settings["camera_height"], hfov)
+    stamps = np.array([t["stamp"] for t in rows])
+    attitude = "truth attitude" if all("orientation" in rows[0]["vehicles"][n] for n in names) \
+        else "level approximation (log has yaw only)"
+    out = {"target": label, "disc_radius_m": radius, "camera": [width, settings["camera_height"],
+           round(math.degrees(hfov), 1)], "attitude": attitude, "vehicles": {}}
+    fully_all = []
+    detected_any = np.zeros(len(rows), bool)
+    for n in names:
+        views = []
+        for t in rows:
+            v = t["vehicles"][n]
+            q = v.get("orientation") or fov.level(v["yaw"])
+            views.append(fov.view([*t["target"][:2], height], radius, v["position"], q, K,
+                                  width, settings["camera_height"]))
+        centre = np.array([w["centre_in"] for w in views])
+        fully = np.array([w["fully_in"] for w in views])
+        offsets = [w["offset"] for w in views if w["offset"] is not None]
+        fully_all.append(fully)
+        entry = {"in_view_fraction": float(centre.mean()), "fully_in_view_fraction": float(fully.mean()),
+                 "centre_offset": {"mean": float(np.mean(offsets)) if offsets else None,
+                                   "p95": percentile(offsets, 95)},
+                 "longest_out_of_view_s": fov.gaps(list(stamps), list(fully)), "detection": None}
+        frames = [f for f in lines(run / f"detections_{n}.jsonl")
+                  if stamps[0] <= f["stamp"] <= stamps[-1]]
+        if frames:
+            index = np.clip(np.searchsorted(stamps, [f["stamp"] for f in frames]), 0, len(stamps) - 1)
+            hit = np.array([f["detected"] for f in frames])
+            visible, present = fully[index], centre[index]
+            # Accuracy of true detections; false ones are counted separately.
+            errors = [math.dist(f["observed"], rows[k]["target"][:2])
+                      for f, k in zip(frames, index) if f["observed"] is not None and centre[k]]
+            entry["detection"] = {
+                "frames": len(frames),
+                "recall": float(hit[visible].mean()) if visible.any() else None,
+                "false_detections": int((hit & ~present).sum()),
+                "error_m": {"mean": float(np.mean(errors)) if errors else None, "p95": percentile(errors, 95)},
+            }
+            # A detection keeps the team "seeing" the target for the next 0.2 s.
+            hits = np.array([f["stamp"] for f in frames if f["detected"]])
+            if len(hits):
+                marks = np.zeros(len(stamps) + 1)
+                np.add.at(marks, np.searchsorted(stamps, hits, "left"), 1)
+                np.add.at(marks, np.searchsorted(stamps, hits + 0.2, "right"), -1)
+                detected_any |= np.cumsum(marks)[:-1] > 0
+        out["vehicles"][n] = entry
+    out["team"] = fov.team_coverage(stamps, fully_all)
+    if len(names) > 1:
+        out["overlap"] = overlap_report(rows, names, K, width, settings["camera_height"], height)
+    if any(out["vehicles"][n]["detection"] for n in names):
+        out["team"]["detected_by_any_fraction"] = float(detected_any.mean())
+        out["team"]["longest_undetected_s"] = fov.gaps(list(stamps), list(detected_any))
+    return out
+
+
 def analyze(run):
     cfg = json.loads((run / "mpc-config.json").read_text())
     settings = yaml.safe_load((run / "controller.yaml").read_text())
@@ -195,7 +312,58 @@ def analyze(run):
                 "mean_rate_dps": float(np.degrees(np.abs(np.diff(yaws)).sum()) / max(ytimes[-1] - ytimes[0], 1e-9)),
             },
         }
+    report["fov"] = fov_report(run, settings, cfg, truth, list(report["vehicles"]))
     return report
+
+
+def show_fov(f):
+    if f is None:
+        print("\n== FOV: no target in truth.jsonl")
+        return
+    w, h, deg = f["camera"]
+    print(f"\n== FOV ({f['target']} disc r={f['disc_radius_m']:.2f} m; camera {w}x{h}, {deg} deg; "
+          f"{f['attitude']})")
+    for name, v in f["vehicles"].items():
+        c = v["centre_offset"]
+        line = (f"{name}: tag in view {100 * v['in_view_fraction']:.0f}% "
+                f"(fully {100 * v['fully_in_view_fraction']:.0f}%), longest out of view "
+                f"{v['longest_out_of_view_s']:.1f} s")
+        if c["mean"] is not None:
+            line += f", offset from image centre mean {c['mean']:.2f} p95 {c['p95']:.2f} (1 = edge)"
+        print(line)
+        d = v["detection"]
+        if d is None:
+            print("  detection: no detections_<uav>.jsonl (older run or ground_truth mode)")
+        else:
+            recall = "n/a" if d["recall"] is None else f"{100 * d['recall']:.0f}%"
+            error = "" if d["error_m"]["mean"] is None else \
+                f", position error mean {d['error_m']['mean']:.2f} p95 {d['error_m']['p95']:.2f} m"
+            print(f"  detection: recall {recall} of fully-visible frames, "
+                  f"{d['false_detections']} false detections, {d['frames']} frames{error}")
+    t = f["team"]
+    if len(f["vehicles"]) > 1 or "detected_by_any_fraction" in t:
+        line = (f"team: >= 1 UAV sees the tag {100 * t['any_in_view_fraction']:.0f}% of the time, "
+                f"mean {t['mean_viewers']:.1f} viewers, longest unseen {t['longest_unseen_s']:.1f} s")
+        if "detected_by_any_fraction" in t:
+            line += (f"; detected by any {100 * t['detected_by_any_fraction']:.0f}%, "
+                     f"longest without detection {t['longest_undetected_s']:.1f} s")
+        print(line)
+    if "overlap" in f:
+        show_overlap(f["overlap"])
+
+
+def show_overlap(o):
+    if o is None:
+        print("FOV overlap: no sample with every footprint on the ground plane")
+        return
+    print(f"FOV overlap on the target plane ({o['samples']} samples at 5 Hz; footprint "
+          f"{o['footprint_m2']:.1f} m2 each" + (f", {o['skipped_tilted']} tilted samples skipped"
+                                                 if o["skipped_tilted"] else "") + "):")
+    for pair, v in o["pairs"].items():
+        print(f"  {pair}: overlapping {100 * v['overlapping_fraction']:.0f}% of the time, "
+              f"mean {v['mean_m2']:.2f} m2 (IoU {v['mean_iou']:.2f}), max {v['max_m2']:.2f} m2")
+    print(f"  team: covers {o['union_m2']:.1f} m2 on average of {o['summed_m2']:.1f} m2 summed; "
+          f"{100 * o['shared_fraction']:.0f}% of the summed footprint area duplicates another camera")
 
 
 def show(report):
@@ -251,6 +419,8 @@ def show(report):
                   f"controller {stop['controller_result']}, setpoint {stop['setpoint_reason']}")
         if len(stops) > 15:
             print(f"  ... {len(stops) - 15} more in analysis.json")
+    if "fov" in report:
+        show_fov(report["fov"])
 
 
 def main(argv=None):

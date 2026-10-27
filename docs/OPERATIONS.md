@@ -205,6 +205,25 @@ obstacles; total yaw rotation; and solver percentiles. A `command_limit` or
 `expired_command` setpoint reason means the flight publisher held zero velocity;
 a `stop_plan: ...` controller result means MPC fell back to its stop branch.
 
+The FOV section projects the true target (tag circumcircle, or the marker) into
+each camera with the true UAV attitude and camera intrinsics. Per UAV it reports
+the share of time the tag centre and the whole tag are in the image, the
+offset from the image centre (0 centre, 1 edge) and the longest time out of
+view. From `detections_<uav>.jsonl` it reports detector recall over frames with
+the whole tag visible, false detections (tag not in the image) and position
+error of true detections. Team lines give the share of time at least one UAV
+sees the tag, the mean number of viewers and the longest unseen and undetected
+gaps. Runs recorded before full attitude logging use a level approximation and
+say so; runs without detection logs omit the detection lines.
+
+With several UAVs it also reports camera overlap at 5 Hz: each camera's ground
+footprint on the target plane (image corners projected with the true attitude),
+and for each pair the share of time the footprints overlap, the mean and
+maximum shared area and the mean IoU; the team line compares the covered area
+(union) with the summed footprint area. Overlap depends on heading: a 640 × 480
+footprint at 2 m is 3.4 × 2.6 m, so followers 2.6 m to the side overlap only
+when the long image axis points along the formation.
+
 | Output in `runs/<run-id>/` | Contents |
 |---|---|
 | `manifest.json`, `source-sha256.json` | Mode, fleet, versions, commit, file hashes |
@@ -214,7 +233,8 @@ a `stop_plan: ...` controller result means MPC fell back to its stop branch.
 | `alignment.json` | Frozen world-to-local calibration |
 | `logs/`, `sitl/<instance>/` | Process logs, SITL EEPROM, flight logs |
 | `controller_sources.jsonl` | Controller startup hashes and settings |
-| `mpc.jsonl`, `truth.jsonl` | Controller measurements/diagnostics and independent Gazebo poses and yaw |
+| `mpc.jsonl`, `truth.jsonl` | Controller measurements/diagnostics and independent Gazebo poses with full attitude |
+| `detections_<uav>.jsonl` | One line per camera frame: detected or not, pixel, projected ground position |
 | `setpoints.jsonl` | Each change of the flight publisher's reason (`tracking`, `command_limit`, `expired_command`, ...) |
 | `live-obstacles.yaml` | Obstacles added during the run (`./scripts/dev scene`) |
 | `evaluation.json` | Geometry, tracking, compute, and simulation-speed metrics |

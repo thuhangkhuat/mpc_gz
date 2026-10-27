@@ -4,6 +4,9 @@ With a ground_robot configured the target is its AprilTag (tag centre on the
 tag plane); otherwise it is the magenta scenario marker.
 """
 
+import json
+from pathlib import Path
+
 import cv2
 import numpy as np
 from cv_bridge import CvBridge
@@ -39,6 +42,10 @@ class MarkerDetector(Node):
             apriltag.dictionary(self.robot["tag"]["family"])  # fail at startup without aruco
         self.publishers_keep = {}
         self.debug = {}
+        # One line per processed frame for FOV/recall analysis (scripts/analyze_run.py).
+        run_dir = getattr(args, "run_dir", "")
+        self.frames = {n: open(Path(run_dir, f"detections_{n}.jsonl"), "a", buffering=1)
+                       for n in names} if run_dir else {}
         self.subscriptions_keep = []
         for n in names:
             self.publishers_keep[n] = self.create_publisher(
@@ -130,6 +137,12 @@ class MarkerDetector(Node):
         except (ValueError, cv2.error) as exc:
             self.get_logger().debug(str(exc))
         finally:
+            if n in self.frames and image is not None:
+                self.frames[n].write(json.dumps({
+                    "stamp": seconds(msg.header.stamp), "detected": found is not None,
+                    "pixel": None if found is None else [float(v) for v in found[0]],
+                    "observed": None if observed is None else [float(v) for v in observed[:2]],
+                }) + "\n")
             if image is not None:
                 try:
                     self.annotate(n, msg, image, found, observed)

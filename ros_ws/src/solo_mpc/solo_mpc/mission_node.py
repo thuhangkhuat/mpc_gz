@@ -118,7 +118,9 @@ class MissionSupervisor(Flight):
                 "stamp": seconds(msg.header.stamp),
                 "vehicles": {
                     n: {"position": pose_arrays(self.truth[n])[0].tolist(),
-                        "yaw": yaw_of(pose_arrays(self.truth[n])[1])}
+                        "yaw": yaw_of(pose_arrays(self.truth[n])[1]),
+                        # Full attitude: camera FOV analysis needs roll and pitch.
+                        "orientation": pose_arrays(self.truth[n])[1].tolist()}
                     for n in self.names
                 },
                 "target": pose_arrays(self.target["pose"])[0].tolist() if self.target else None,
