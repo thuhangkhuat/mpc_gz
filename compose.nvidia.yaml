@@ -3,6 +3,9 @@ services:
   sim:
     environment:
       NVIDIA_DRIVER_CAPABILITIES: graphics,utility,compute
+      # GLX clients (Gazebo GUI, RViz) on Xwayland are otherwise routed to Mesa,
+      # which falls back to llvmpipe; headless EGL rendering is unaffected.
+      __GLX_VENDOR_LIBRARY_NAME: nvidia
     deploy:
       resources:
         reservations:

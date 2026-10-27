@@ -73,6 +73,13 @@ With host drivers and NVIDIA container support configured:
 ./scripts/dev mpc
 ```
 
+The Gazebo server renders headless through EGL and uses the NVIDIA driver
+directly. GUI clients (Gazebo GUI, RViz) use GLX through the X server; on a
+Wayland desktop that is Xwayland, which names Mesa as the GLX vendor, so without
+an override they fall back to `llvmpipe`. The override sets
+`__GLX_VENDOR_LIBRARY_NAME=nvidia`; check it with
+`docker compose exec sim /usr/local/bin/solo-entrypoint glxinfo -B`.
+
 [compose.nvidia.yaml](../compose.nvidia.yaml) requests GPU/graphics capabilities;
 it does not install host drivers or the toolkit. Hardware acceleration for this
 setup remains unvalidated. WSL device visibility does not establish access from
