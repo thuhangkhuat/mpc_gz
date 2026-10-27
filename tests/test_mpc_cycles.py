@@ -109,3 +109,19 @@ def test_fallback_is_revalidated_after_new_measured_state_arrives():
     assert stopping_result_matches(measured, result, 0., cfg)
     measured.position[0] += 1
     assert not stopping_result_matches(measured, result, 0., cfg)
+
+
+@pytest.mark.parametrize("axis,delta,name", [("position", 1.0, "position"),
+                                             ("velocity", 0.5, "velocity"),
+                                             ("acceleration", 0.8, "acceleration")])
+def test_fallback_mismatch_names_the_diverged_component(axis, delta, name):
+    from types import SimpleNamespace
+    from solo_mpc.core.cycles import stopping_mismatch
+    cfg = dict(TIMESTEP=.1, BACKUP_POSITION_TOLERANCE=.15,
+               BACKUP_VELOCITY_TOLERANCE=.3, BACKUP_ACCEL_TOLERANCE=.5)
+    result = dict(prediction=np.tile([8., 4., 0., 0., 0., 0.], (11, 1)))
+    measured = SimpleNamespace(position=np.array([8., 4., 3.]), velocity=np.zeros(3),
+                               acceleration=np.zeros(3), stamp=.1)
+    assert stopping_mismatch(measured, result, 0., cfg) is None
+    getattr(measured, axis)[0] += delta
+    assert stopping_mismatch(measured, result, 0., cfg) == name

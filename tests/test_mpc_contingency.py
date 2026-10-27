@@ -89,7 +89,10 @@ def test_failure_executes_remaining_stop_plan_until_rest(monkeypatch, failure, t
         index = min(k, len(plan.states) - 1)
         np.testing.assert_allclose(result["prediction"][0], plan.states[index], atol=1e-6)
         np.testing.assert_array_equal(team.predictions["solo"], result["prediction"])
-        assert "solo" not in team.warm
+        # The next solve starts from the verified stop branch, one step ahead.
+        X_warm, U_warm = team.warm["solo"]
+        np.testing.assert_array_equal(X_warm[:-1], result["prediction"][1:])
+        assert U_warm.shape == (team.cfg["HORIZON_LENGTH"], 2)
         x = Ad @ x + Bd @ result["acceleration"]
     np.testing.assert_allclose(x[2:], 0., atol=1e-5)
     np.testing.assert_allclose(result["acceleration"], 0.)

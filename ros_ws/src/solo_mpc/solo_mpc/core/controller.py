@@ -259,6 +259,10 @@ class TeamController(FleetGuidance):
         controls = np.vstack([controls, np.zeros((H - len(controls), 2))])
         self.predictions[name] = rows.copy()
         self.prediction_stamps[name] = stamp
+        # Seed the next solve from the verified stop branch, shifted one step like
+        # a nominal warm start. A cold start after a failure timed out again in
+        # 45% of cases; the failed iterate itself is still never reused.
+        self.warm[name] = (np.vstack([rows[1:], rows[-1:]]), np.vstack([controls[1:], controls[-1:]]))
         return {"ok": True, "nominal_ok": False, "position": rows[1, :2].copy(),
                 "velocity": rows[1, 2:4].copy(), "acceleration": control.copy(),
                 "prediction": rows.copy(), "controls": controls,

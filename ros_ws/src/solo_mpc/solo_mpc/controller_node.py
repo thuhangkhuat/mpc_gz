@@ -19,7 +19,7 @@ from visualization_msgs.msg import Marker, MarkerArray
 from .core.controller import VehicleState
 from .core.coordination import path_carrot
 from .core.geometry import halfspace_polygon
-from .core.cycles import CycleRunner, result_is_current, stopping_result_matches
+from .core.cycles import CycleRunner, result_is_current, stopping_mismatch
 from .core.parallel_controller import ParallelTeamController
 from .core.sensors import PoseHistory, project_scan
 from .core.tracking import ExactTargetTracker
@@ -212,8 +212,9 @@ class Controller(Node):
                     p, q, at = self.poses[n]
                     v, vt = self.velocities[n]
                     measured = VehicleState(p, v, self.accelerations.get(n, np.zeros(3)), q, at)
-                    if not stopping_result_matches(measured, out, stamp, self.args.cfg, velocity_stamp=vt):
-                        results[n] = dict(out, ok=False, reason='stop_plan_measured_state_changed')
+                    mismatch = stopping_mismatch(measured, out, stamp, self.args.cfg, velocity_stamp=vt)
+                    if mismatch:
+                        results[n] = dict(out, ok=False, reason=f'stop_plan_measured_state_changed: {mismatch}')
                         reason = 'partial_solver_failure'
             self._publish_cycle(start, now, stamp, reason, results)
             if reason != 'ready':
