@@ -58,6 +58,14 @@ class Frames(Node):
                     tf.transform.rotation.w,
                 ) = map(float, q)
                 mounts.append(tf)
+            # MAVROS publishes odom -> odom_ned but nothing above odom. ArduPilot
+            # local odometry shares the local position origin, so attach it to
+            # map; world -> map follows once alignment is frozen.
+            tf = TransformStamped()
+            tf.header.frame_id = f"{n}/map"
+            tf.child_frame_id = f"{n}/odom"
+            tf.transform.rotation.w = 1.0
+            mounts.append(tf)
         self.static.sendTransform(mounts)
         for n in args.names:
             self.publishers_keep[n] = (

@@ -141,6 +141,35 @@ shows the last verified corridor and no new grid path. Pass another config as
 `./scripts/dev rviz /workspace/config/<file>.rviz`; for other UAVs change the
 `uav1` topic prefixes.
 
+### Edit the running scene
+
+Change the target, UAV position and obstacles without restarting Gazebo:
+
+```bash
+./scripts/dev scene target 10 -5               # fix the target at (10, -5)
+./scripts/dev scene drone -15 10               # mission running: fly uav1 there, wait for arrival
+./scripts/dev scene obstacle add circle 5 5 0.3
+./scripts/dev scene obstacle add box 8 -2 1.6 0.4   # centre X Y, width along X, depth along Y
+./scripts/dev scene obstacle list | remove live_obstacle_0 | clear
+```
+
+In RViz, **2D Goal Pose** fixes the target at the clicked point and **Publish
+Point** adds a 0.15 m pole. A fixed target replaces the scenario route until the
+simulation stops; mission starts keep it. With `arrival_completes_mission: false`
+(set in `controller_solo.yaml`) the mission keeps following the target until
+`./scripts/dev mission stop`, which lands where the UAV is; the next
+`mission run` takes off from there. UAVs are never teleported: moving an armed
+or landed ArduPilot vehicle in Gazebo invalidates its estimator and the frozen
+frame alignment.
+
+Live obstacles use the run's `obstacle_height` and appear only through the
+LiDAR, so the map learns or clears them over a few scans. `obstacle add` refuses
+positions within `SENSING_RADIUS + ROBOT_RADIUS` of a UAV, where the vehicle may
+not stop in time, or within `viewing_radius` of the target; `--force` skips
+these checks. They are listed in `runs/<run-id>/live-obstacles.yaml` and are not
+included in `scenario.yaml` or `evaluate` collision checks. Changing the
+scenario file still requires a new simulation.
+
 ## Logs and evaluation
 
 | Output in `runs/<run-id>/` | Contents |

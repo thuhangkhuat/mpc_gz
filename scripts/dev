@@ -53,6 +53,9 @@ Usage: ./scripts/dev COMMAND [arguments]
   shell                          Bash inside simulation container
   gui                            Gazebo GUI client; server keeps running on GUI exit
   rviz [CONFIG]                  RViz: scan, corridor, paths (default /workspace/config/solo_mpc.rviz)
+  scene target X Y               Fix the target at X Y in the running simulation
+  scene drone X Y [--uav NAME]   Fly a UAV to X Y during a mission (moves the target there)
+  scene obstacle add circle X Y R | add box X Y W D | remove NAME | clear | list
   stop                           LAND, await disarm, then stop simulation
   stop --force                   Stop processes immediately, no LAND
   test                           Unit/config tests inside image
@@ -122,6 +125,7 @@ case "$command" in
   logs) "${dc[@]}" logs -f --tail 100 sim ;;
   shell) "${dc[@]}" exec sim /usr/local/bin/solo-entrypoint bash ;;
   gui) "${dc[@]}" exec sim /usr/local/bin/solo-entrypoint python3 /workspace/scripts/gazebo_gui.py ;;
+  scene) "${dc[@]}" exec -T sim /usr/local/bin/solo-entrypoint python3 /workspace/scripts/scene.py "$@" ;;
   rviz) "${dc[@]}" exec sim /usr/local/bin/solo-entrypoint rviz2 -d "${1:-/workspace/config/solo_mpc.rviz}" \
           --ros-args -p use_sim_time:=true ;;
   mission) "${dc[@]}" exec -T sim /usr/local/bin/solo-entrypoint ros2 run solo_mpc mission "$@" ;;

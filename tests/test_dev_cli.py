@@ -215,6 +215,15 @@ def test_rviz_runs_in_simulation_container_on_sim_time(fake_docker, args, config
     assert command[command.index("rviz2") - 2:command.index("rviz2")] == ["sim", "/usr/local/bin/solo-entrypoint"]
 
 
+def test_scene_forwards_edits_to_simulation_container(fake_docker):
+    log, env = fake_docker
+    assert invoke(["scene", "obstacle", "add", "circle", "1", "2", "0.3"], env).returncode == 0
+    (command,) = [e["args"] for e in calls(log)]
+    assert command[-11:] == ["-T", "sim", "/usr/local/bin/solo-entrypoint", "python3",
+                             "/workspace/scripts/scene.py",
+                             "obstacle", "add", "circle", "1", "2", "0.3"]
+
+
 @pytest.mark.parametrize('no_wait', [False, True])
 def test_mpc_starts_stack_without_starting_mission(fake_docker, no_wait):
     log, env = fake_docker

@@ -25,6 +25,7 @@ target_search_timeout_sim: 8.0
 planner_failure_timeout_sim: 3.0
 arrival_fleet_radius: 6.0
 arrival_timeout_sim: 180.0  # fixed target is at its goal from the start; allows the ~90 m crossing
+arrival_completes_mission: false  # live editing: keep flying until `mission stop`; true lands on arrival
 command_timeout_sim: 0.4
 command_timeout_wall: 3.0
 pose_timeout_wall: 3.0

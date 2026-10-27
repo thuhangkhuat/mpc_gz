@@ -342,7 +342,8 @@ class MissionSupervisor(Flight):
             # Takeover wins over completion and health failures from this tick.
             self.check_stop()
             if (
-                self.target
+                self.settings.get("arrival_completes_mission", True)
+                and self.target
                 and np.linalg.norm(pose_arrays(self.target["pose"])[0][:2] - goal) < 0.05
             ):
                 positions = [

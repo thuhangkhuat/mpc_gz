@@ -539,3 +539,50 @@ def test_target_timestamps_match_route_and_pause_resume_reset(tmp_path, monkeypa
     finally:
         node.destroy_node()
         rclpy.shutdown()
+
+
+def test_static_tf_connects_mavros_odom_to_map(tmp_path):
+    rclpy.init()
+    node = Frames(node_args(tmp_path))
+    try:
+        # StaticTransformBroadcaster accumulates every frame it has sent.
+        static = {(t.header.frame_id, t.child_frame_id): t.transform
+                  for t in node.static.net_message.transforms}
+        for n in node.args.names:
+            odom = static[(f"{n}/map", f"{n}/odom")]
+            assert (odom.translation.x, odom.translation.y, odom.translation.z) == (0, 0, 0)
+            assert (odom.rotation.x, odom.rotation.y, odom.rotation.z, odom.rotation.w) == (0, 0, 0, 1)
+            assert (f"{n}/base_link", f"{n}/laser") in static
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
+
+def test_target_goal_overrides_route_and_survives_reset(tmp_path, monkeypatch):
+    from geometry_msgs.msg import PoseStamped
+    from std_srvs.srv import Trigger
+
+    rclpy.init()
+    node = MovingTarget(node_args(tmp_path))
+    try:
+        sent = []
+        monkeypatch.setattr(node.gz, "request",
+                            lambda service, req, *a: sent.append((req.position.x, req.position.y))
+                            or (True, SimpleNamespace(data=True)))
+        x0, y0, x1, y1 = node.args.cfg["WORLD_BOUNDS"]
+        goal = PoseStamped()
+        goal.header.frame_id = "world"
+        goal.pose.position.x, goal.pose.position.y = (x0 + x1) / 2, (y0 + y1) / 2
+        node.set_goal(goal)
+        node.reset(Trigger.Request(), Trigger.Response())
+        node.tick()
+        assert sent[-1] == pytest.approx(((x0 + x1) / 2, (y0 + y1) / 2))
+        outside = PoseStamped()
+        outside.header.frame_id = "world"
+        outside.pose.position.x = x1 + 10
+        node.set_goal(outside)
+        node.tick()
+        assert sent[-1] == pytest.approx(((x0 + x1) / 2, (y0 + y1) / 2))
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
