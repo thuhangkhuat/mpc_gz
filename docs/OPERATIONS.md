@@ -182,6 +182,14 @@ next `./scripts/dev mpc` loads them as ordinary scenario obstacles.
 
 ## Logs and evaluation
 
+After a flight, `./scripts/dev analyze` (or `python3 scripts/analyze_run.py
+--run-dir runs/<run-id>` on the host) reports each stop slower than 0.1 m/s for
+over 1 s away from the target, with its nearest obstacle, the dominant
+controller result and the setpoint reason; minimum body clearance including live
+obstacles; total yaw rotation; and solver percentiles. A `command_limit` or
+`expired_command` setpoint reason means the flight publisher held zero velocity;
+a `stop_plan: ...` controller result means MPC fell back to its stop branch.
+
 | Output in `runs/<run-id>/` | Contents |
 |---|---|
 | `manifest.json`, `source-sha256.json` | Mode, fleet, versions, commit, file hashes |
@@ -191,8 +199,11 @@ next `./scripts/dev mpc` loads them as ordinary scenario obstacles.
 | `alignment.json` | Frozen world-to-local calibration |
 | `logs/`, `sitl/<instance>/` | Process logs, SITL EEPROM, flight logs |
 | `controller_sources.jsonl` | Controller startup hashes and settings |
-| `mpc.jsonl`, `truth.jsonl` | Controller measurements/diagnostics and independent Gazebo poses |
+| `mpc.jsonl`, `truth.jsonl` | Controller measurements/diagnostics and independent Gazebo poses and yaw |
+| `setpoints.jsonl` | Each change of the flight publisher's reason (`tracking`, `command_limit`, `expired_command`, ...) |
+| `live-obstacles.yaml` | Obstacles added during the run (`./scripts/dev scene`) |
 | `evaluation.json` | Geometry, tracking, compute, and simulation-speed metrics |
+| `analysis.json` | `./scripts/dev analyze`: stops away from the target with their cause, clearance, yaw, solver timing |
 | `cameras/`, `overhead/` | Optional videos and frame timestamps |
 
 The image ID is stored beside the run in `runs/<run-id>.image-id.json`.

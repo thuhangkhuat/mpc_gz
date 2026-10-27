@@ -45,6 +45,8 @@ sitl_params:  # FCU limits loaded on top of copter.parm and gazebo-iris.parm
   WPNAV_SPEED: 150     # GUIDED speed cap: headroom above VMAX for position corrections
   WPNAV_ACCEL: 200     # GUIDED accel cap: headroom above UMAX
   PSC_JERK_XY: 5       # ArduPilot default, stated explicitly; ACCEL_TAU accounts for it
+  WP_YAW_BEHAVIOR: 0   # hold heading: GUIDED references ignore yaw, and the default
+                       # (face travel direction) spins the vehicle at low, noisy speeds
   WPNAV_SPEED_UP: 320
   WPNAV_SPEED_DN: 240
   LOIT_SPEED: 1300

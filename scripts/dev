@@ -47,6 +47,7 @@ Usage: ./scripts/dev COMMAND [arguments]
       [--record-overhead]         Save a 1920x1080 elevated view to runs/<run-id>/overhead/
   mission run|start|stop|status|reset [--seconds WALL_SECONDS]
   evaluate                       Evaluate the latest MPC flight log
+  analyze [--run-dir DIR]        Stops, obstacle clearance, yaw and solver timing of a run
   wait [TIMEOUT]                 Wait for current simulation readiness
   status                         Show Docker state and live readiness
   logs                           Follow process logs (Ctrl+C only stops tail)
@@ -130,6 +131,7 @@ case "$command" in
           --ros-args -p use_sim_time:=true ;;
   mission) "${dc[@]}" exec -T sim /usr/local/bin/solo-entrypoint ros2 run solo_mpc mission "$@" ;;
   evaluate) "${dc[@]}" exec -T sim /usr/local/bin/solo-entrypoint ros2 run solo_mpc evaluate "$@" ;;
+  analyze) "${dc[@]}" exec -T sim /usr/local/bin/solo-entrypoint python3 /workspace/scripts/analyze_run.py "$@" ;;
   stop)
     if [[ "${1:-}" != --force ]]; then
       "${dc[@]}" exec -T sim /usr/local/bin/solo-entrypoint ros2 run solo_mpc mission stop

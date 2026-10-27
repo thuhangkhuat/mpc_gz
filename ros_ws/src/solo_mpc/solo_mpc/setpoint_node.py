@@ -34,6 +34,9 @@ class Setpoints(Node):
         self.publishers_keep = {}
         self.subscriptions_keep = []
         self.last_reason = {}
+        # Reason transitions only, so a long hover stays a few lines.
+        self.log = (open(Path(args.run_dir, "setpoints.jsonl"), "a", buffering=1)
+                    if getattr(args, "run_dir", None) else None)
         self.enabled = False
         self.create_service(SetBool, "/mpc/enable", self.enable)
         self.status = self.create_publisher(String, "/mpc/setpoint_status", 10)
@@ -144,7 +147,14 @@ class Setpoints(Node):
                     ]
                 )
                 trajectory = self.trajectories.get(n)
+                speed_limit = cfg["VMAX"]
                 if trajectory is not None and trajectory.header.stamp == source.header.stamp:
+                    # Row 0 is the measured state at solve time. Sampling just
+                    # after it repeats a measured speed slightly above VMAX;
+                    # that is not an optimizer fault and must not halt flight.
+                    if trajectory.points:
+                        speed_limit = max(speed_limit, float(np.linalg.norm(
+                            trajectory.points[0].velocities[:2])))
                     try:
                         xy, vxy, axy = sample_trajectory(
                             trajectory.points, sim - seconds(source.header.stamp))
@@ -154,7 +164,7 @@ class Setpoints(Node):
                 if not np.isfinite(np.r_[position, velocity, acceleration]).all():
                     reason = "invalid_command"
                 elif (
-                    np.linalg.norm(velocity[:2]) > cfg["VMAX"] * 1.05
+                    np.linalg.norm(velocity[:2]) > speed_limit * 1.05
                     or np.linalg.norm(acceleration[:2]) > cfg["UMAX"] * 1.05
                 ):
                     reason = "command_limit"
@@ -229,6 +239,13 @@ class Setpoints(Node):
                 ) = map(float, acceleration)
             self.publishers_keep[n].publish(out)
             statuses[n] = reason
+            if self.log and self.last_reason.get(n) != reason:
+                self.log.write(json.dumps({
+                    "stamp": sim, "vehicle": n, "reason": reason,
+                    "position": p[:2].tolist(),
+                    "command_speed": None if values is None else float(np.linalg.norm(values[1][:2])),
+                }) + "\n")
+            self.last_reason[n] = reason
         self.status.publish(
             String(data=json.dumps({"stamp": sim, "vehicles": statuses}))
         )

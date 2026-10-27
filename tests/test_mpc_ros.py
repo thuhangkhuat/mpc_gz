@@ -586,3 +586,51 @@ def test_target_goal_overrides_route_and_survives_reset(tmp_path, monkeypatch):
     finally:
         node.destroy_node()
         rclpy.shutdown()
+
+
+@pytest.mark.parametrize("measured,commanded,reason", [
+    (0.76, 0.75, "tracking"),        # measured overshoot repeated by row 0: keep flying
+    (0.70, 0.90, "command_limit"),   # optimizer output above VMAX and measured speed
+])
+def test_setpoint_guard_allows_measured_overshoot_only(tmp_path, measured, commanded, reason):
+    import numpy as np
+    from builtin_interfaces.msg import Duration
+    from mavros_msgs.msg import PositionTarget, State
+    from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
+    from solo_mpc.ros_utils import pose_message
+
+    rclpy.init()
+    args = node_args(tmp_path)
+    args.cfg = dict(args.cfg, VMAX=0.7)
+    node = Setpoints(args)
+    try:
+        name = "test_uav"
+        statuses = []
+        node.publishers_keep[name] = SimpleNamespace(publish=lambda _: None)
+        node.status = SimpleNamespace(publish=lambda msg: statuses.append(json.loads(msg.data)))
+        node.align[name] = {"yaw": 0.0, "translation": [0.0, 0.0, 0.0]}
+        node.enabled = True
+        node.state(name, State(connected=True, armed=True, mode="GUIDED"))
+        from rclpy.duration import Duration as RosDuration
+
+        now = node.get_clock().now()
+        node.pose(name, pose_message([10.0, 5.0, 3.0], now.to_msg()))
+        reference = PositionTarget()
+        reference.header.frame_id = "world"
+        # Solved 90 ms ago: the sample lies near row 1, the optimizer's own state.
+        reference.header.stamp = (now - RosDuration(seconds=0.09)).to_msg()
+        node.reference(name, reference)
+        trajectory = JointTrajectory()
+        trajectory.header = reference.header
+        trajectory.joint_names = ["x", "y"]
+        for k, speed in enumerate([measured, commanded]):  # row 0 is the measured state
+            trajectory.points.append(JointTrajectoryPoint(
+                positions=[10.0 + 0.07 * k, 5.0], velocities=[speed, 0.0], accelerations=[0.0, 0.0],
+                time_from_start=Duration(sec=0, nanosec=k * 100_000_000)))
+        node.trajectory(name, trajectory)
+        node.tick()
+        assert statuses[-1]["vehicles"][name] == reason
+        assert [json.loads(l)["reason"] for l in (tmp_path / "setpoints.jsonl").read_text().splitlines()] == [reason]
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()

@@ -28,6 +28,11 @@ import yaml
 from .ros_utils import pose_arrays, qos_profile_sensor_data, seconds
 
 
+def yaw_of(quaternion):
+    x, y, z, w = quaternion
+    return math.atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z))
+
+
 class MissionStopped(Exception):
     """Interrupt preflight, takeoff or tracking, while leaving LAND uninterrupted."""
 
@@ -112,7 +117,8 @@ class MissionSupervisor(Flight):
             self.truth_log.write(json.dumps({
                 "stamp": seconds(msg.header.stamp),
                 "vehicles": {
-                    n: {"position": pose_arrays(self.truth[n])[0].tolist()}
+                    n: {"position": pose_arrays(self.truth[n])[0].tolist(),
+                        "yaw": yaw_of(pose_arrays(self.truth[n])[1])}
                     for n in self.names
                 },
                 "target": pose_arrays(self.target["pose"])[0].tolist() if self.target else None,
