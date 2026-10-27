@@ -54,6 +54,7 @@ Usage: ./scripts/dev COMMAND [arguments]
   shell                          Bash inside simulation container
   gui                            Gazebo GUI client; server keeps running on GUI exit
   rviz [CONFIG]                  RViz: scan, corridor, paths (default /workspace/config/solo_mpc.rviz)
+  drive [--config PATH]          Drive the AprilTag ground robot from the keyboard
   scene target X Y               Fix the target at X Y in the running simulation
   scene drone X Y [--uav NAME]   Fly a UAV to X Y during a mission (moves the target there)
   scene obstacle add circle X Y R | add box X Y W D | remove NAME | clear | list | save
@@ -127,6 +128,7 @@ case "$command" in
   shell) "${dc[@]}" exec sim /usr/local/bin/solo-entrypoint bash ;;
   gui) "${dc[@]}" exec sim /usr/local/bin/solo-entrypoint python3 /workspace/scripts/gazebo_gui.py ;;
   scene) "${dc[@]}" exec -T sim /usr/local/bin/solo-entrypoint python3 /workspace/scripts/scene.py "$@" ;;
+  drive) "${dc[@]}" exec sim /usr/local/bin/solo-entrypoint python3 /workspace/scripts/drive.py "$@" ;;
   rviz) "${dc[@]}" exec sim /usr/local/bin/solo-entrypoint rviz2 -d "${1:-/workspace/config/solo_mpc.rviz}" \
           --ros-args -p use_sim_time:=true ;;
   mission) "${dc[@]}" exec -T sim /usr/local/bin/solo-entrypoint ros2 run solo_mpc mission "$@" ;;

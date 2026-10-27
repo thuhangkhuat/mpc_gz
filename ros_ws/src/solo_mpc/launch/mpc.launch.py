@@ -73,6 +73,7 @@ def start(context):
                     run / "bridge.yaml",
                     record_overhead=get("record_overhead") == "true",
                     camera_enabled=camera_enabled,
+                    robot=settings.get("ground_robot") is not None,
                 )
             }
         ],

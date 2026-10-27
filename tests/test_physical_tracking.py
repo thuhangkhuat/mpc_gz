@@ -64,7 +64,7 @@ def test_solo_overshoot_after_fcu_lag_stays_solvable():
     from solo_mpc.core.mpc_problem import MPCProblem, speed_recovery_limits
     from solo_mpc.settings import load_settings
     pkg = Path(__file__).resolve().parents[1] / 'ros_ws/src/solo_mpc'
-    _, _, cfg = load_settings(pkg / 'scenarios/square50_1uav.yaml', pkg / 'config/controller_solo.yaml')
+    _, _, cfg = load_settings(pkg / 'scenarios/square50_1uav.yaml', pkg.parents[2] / 'config/drone.yaml')
     assert cfg['SPEED_RECOVERY'] and cfg['VMAX'] == 0.7
     x0 = np.array([10., 10., 0.78, 0., 0.3, 0.])
     limits = speed_recovery_limits(x0, cfg, cfg['BACKUP_HORIZON'])

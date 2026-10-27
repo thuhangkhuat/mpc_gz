@@ -18,7 +18,7 @@ def write_run(run):
     from solo_mpc.settings import load_settings
 
     scenario, settings, cfg = load_settings(pkg / "scenarios/square50_1uav.yaml",
-                                            pkg / "config/controller_solo.yaml")
+                                            pkg.parents[2] / "config/drone.yaml")
     (run / "scenario.yaml").write_text((pkg / "scenarios/square50_1uav.yaml").read_text())
     (run / "controller.yaml").write_text(yaml.safe_dump(settings))
     (run / "mpc-config.json").write_text(json.dumps(cfg))

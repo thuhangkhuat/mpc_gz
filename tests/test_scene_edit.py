@@ -74,7 +74,7 @@ def test_append_keeps_comments_and_validates(tmp_path):
     assert all(line in text.splitlines() for line in kept)
     path = tmp_path / "scenario.yaml"
     path.write_text(text)
-    load_settings(path, pkg / "config/controller_solo.yaml")
+    load_settings(path, pkg.parents[2] / "config/drone.yaml")
 
 
 def test_append_fills_empty_lists():

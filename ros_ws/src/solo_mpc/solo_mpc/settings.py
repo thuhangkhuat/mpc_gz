@@ -8,6 +8,7 @@ import warnings
 import numpy as np
 import yaml
 
+from . import ground_robot
 from .core.target_motion import target_route
 
 DEFAULTS = dict(
@@ -115,6 +116,12 @@ def load_settings(scenario_path, settings_path):
             ],
         )
     )
+    robot = settings.get("ground_robot")
+    if robot is not None:
+        # A path is relative to the settings file; run snapshots embed the mapping.
+        if isinstance(robot, str) and not Path(robot).is_absolute():
+            robot = Path(settings_path).resolve().parent / robot
+        settings["ground_robot"] = ground_robot.load(robot, cfg["WORLD_BOUNDS"])
     derived = dict(
         INFLATE_RADIUS=cfg["ROBOT_RADIUS"] + cfg["INFLATE_MARGIN"],
         UAV_SAFE_DISTANCE=max(2 * cfg["ROBOT_RADIUS"], cfg["UAV_SAFE_RATIO"] * cfg["VIEWING_RADIUS"]),

@@ -65,7 +65,45 @@ MPC launch takes the UAV positions from the scenario, so no fleet file
 changes are needed. The row defines the initial formation; the controller can
 adjust UAV positions while following the target and avoiding obstacles.
 
-## Single Solo-like UAV, fixed target
+## Single Solo-like UAV tracking an AprilTag ground robot
+
+[drone.yaml](../config/drone.yaml) is the single drone file: the fleet entry
+(name, SITL instance, MAVLink system ID) plus every flight, sensor, timing, MPC
+and ArduPilot setting. `.env` selects it as both `FLEET_CONFIG` and
+`MPC_SETTINGS`; the fleet loader and the controller settings loader each ignore
+the other's keys. The scenario still provides the map and the UAV start.
+
+`ground_robot: ground_robot.yaml` (relative to `drone.yaml`) replaces the
+scripted magenta marker with [ground_robot.yaml](../config/ground_robot.yaml):
+
+| Section | Meaning |
+|---|---|
+| `spawn` | `[x, y, yaw_degrees]`; keep it inside the camera footprint of the UAV start, since MPC starts only after the tag is seen |
+| `body` | Box size and mass. Gazebo `VelocityControl` moves it from `/ground_robot/cmd_vel`, so no wheel model needs tuning |
+| `tag` | `tag36h11`, `id`, black-square `size`; a white margin of `size/8` surrounds it. Print the same tag for hardware |
+| `teleop` | Keyboard limits: `max_linear`/`max_angular`, per-key steps, ramp accelerations, command rate |
+
+With `target_mode: camera` each UAV camera (640 × 480, 15 Hz, 90° in
+`drone.yaml`: about 4 m of ground at 2 m) runs an AprilTag detector
+(`cv2.aruco`, OpenCV 4.6+ with contrib modules) and projects the tag centre onto
+the tag plane; the controller sees only these detections. Gazebo's exact robot
+pose is bridged to `/target/ground_truth` for supervision, evaluation and
+`analyze`; `target_mode: ground_truth` feeds that pose to the controller instead.
+Without `ground_robot` the scripted marker and its route are used as before.
+
+Drive the robot from a second terminal while a simulation runs:
+
+```bash
+./scripts/dev drive            # w/x faster/slower, a/d turn, s straight, space stop, q quit
+```
+
+Teleop limits are read when `drive` starts, so edit them and restart `drive`
+without restarting the simulation. Quitting always sends a stop. The robot is
+lower than the LiDAR plane, so it is not a planning obstacle; it can still
+push into scenario obstacles, so drive around them. `./scripts/dev scene target
+X Y` (or RViz 2D Goal Pose) teleports the robot.
+
+### Maps
 
 [square50_1uav.yaml](../ros_ws/src/solo_mpc/scenarios/square50_1uav.yaml)
 (selected by the checked-out `.env`) is a 50 × 50 m map with a corner at the
@@ -82,24 +120,21 @@ bounds; it has no collision and the horizontal LiDAR does not see it.
 soccer-pitch-sized 105 × 68 m field with 40 small obstacles: poles (0.15 m
 radius), masts (0.3 m), narrow frames and 1 m boxes, at least 2.5 m apart. One
 UAV starts at `[8, 34]` and flies to a fixed target at `[97, 34]`; several
-obstacles block the straight line. Select either with
-[fleet_1uav.yaml](../config/fleet_1uav.yaml) and
-[controller_solo.yaml](../ros_ws/src/solo_mpc/config/controller_solo.yaml):
+obstacles block the straight line. Select either with `drone.yaml`:
 
 ```bash
 ./scripts/dev mpc \
-  --fleet /workspace/config/fleet_1uav.yaml \
+  --fleet /workspace/config/drone.yaml \
   --scenario /workspace/ros_ws/src/solo_mpc/scenarios/soccer_1uav.yaml \
-  --settings /workspace/ros_ws/src/solo_mpc/config/controller_solo.yaml
+  --settings /workspace/config/drone.yaml
 ```
 
-A single `target.waypoints` entry makes the target stationary. Because it is
+Without `ground_robot`, a single `target.waypoints` entry makes the target stationary. Because it is
 at its goal from the start, `arrival_timeout_sim` bounds the whole crossing and
-is 180 s in `controller_solo.yaml`. The mission completes once the UAV is within
+is 300 s in `drone.yaml`. The mission completes once the UAV is within
 `viewing_radius` of the target.
 
-`controller_solo.yaml` models slow, realistic Solo flight with
-`target_mode: ground_truth` (no camera detection) at `flight_altitude` 2 m (all
+`drone.yaml` models slow, realistic Solo flight at `flight_altitude` 2 m (all
 scenario starts use z = 2):
 
 | Parameter | Value | Reason |

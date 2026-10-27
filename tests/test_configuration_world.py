@@ -144,13 +144,26 @@ def test_three_uav_world_covers_field_and_configures_sensors(tmp_path, upstream,
     assert rows[0]['gz_topic_name'] == '/world/mpc_small50/clock'
 
 
-def test_world_marks_map_bounds_without_collision(tmp_path, upstream):
+@pytest.fixture
+def fake_tag_texture(monkeypatch):
+    """World generation without OpenCV: a placeholder replaces the rendered tag."""
+    from solo_mpc import ground_robot
+
+    def write(robot, directory):
+        path = Path(directory) / 'apriltag.png'
+        path.write_bytes(b'png')
+        return path
+
+    monkeypatch.setattr(ground_robot, 'write_tag_texture', write)
+
+
+def test_world_marks_map_bounds_without_collision(tmp_path, upstream, fake_tag_texture):
     from solo_mpc.world import generate_mpc_world
 
     pkg = ROOT / 'ros_ws/src/solo_mpc'
-    output, _ = generate_mpc_world(load_config(ROOT / 'config/fleet_1uav.yaml'), upstream,
+    output, _ = generate_mpc_world(load_config(ROOT / 'config/drone.yaml'), upstream,
                                    tmp_path / 'world.sdf', pkg / 'scenarios/square50_1uav.yaml',
-                                   pkg / 'config/controller_solo.yaml')
+                                   pkg.parents[2] / 'config/drone.yaml')
     world = ET.parse(output).getroot().find('world')
     assert world.find("model[@name='uav1']/pose").text.split()[:2] == ['1', '1']
     strips = world.find("model[@name='field_boundary']")
@@ -165,6 +178,52 @@ def test_world_marks_map_bounds_without_collision(tmp_path, upstream):
     assert edges['south'][1] < 0 and edges['north'][1] > 50
     assert edges['west'][0] < 0 and edges['east'][0] > 50
     assert edges['south'][2] >= 50 and edges['west'][3] >= 50
+
+
+def test_ground_robot_replaces_marker_with_tagged_velocity_controlled_model(
+        tmp_path, upstream, fake_tag_texture):
+    from solo_mpc import ground_robot
+    from solo_mpc.settings import load_settings
+    from solo_mpc.world import bridge_config, generate_mpc_world
+
+    pkg = ROOT / 'ros_ws/src/solo_mpc'
+    scenario_path, drone = pkg / 'scenarios/square50_1uav.yaml', ROOT / 'config/drone.yaml'
+    _, settings, _ = load_settings(scenario_path, drone)
+    robot = settings['ground_robot']
+    output, _ = generate_mpc_world(load_config(drone), upstream, tmp_path / 'world.sdf',
+                                   scenario_path, drone)
+    world = ET.parse(output).getroot().find('world')
+    assert world.find("model[@name='tracking_target']") is None
+    model = world.find(f"model[@name='{ground_robot.MODEL}']")
+    x, y, z, *_, yaw = map(float, model.findtext('pose').split())
+    assert (x, y) == tuple(robot['spawn'][:2])
+    assert model.findtext("plugin[@name='gz::sim::systems::VelocityControl']/topic") == ground_robot.CMD_TOPIC
+    assert model.findtext("plugin[@name='gz::sim::systems::PosePublisher']/topic") == ground_robot.POSE_TOPIC
+    tag = model.find("link/visual[@name='apriltag']")
+    assert tag.findtext('.//albedo_map') == str((tmp_path / 'apriltag.png').resolve())
+    edge = float(tag.findtext('.//box/size').split()[0])
+    assert edge == pytest.approx(robot['tag']['size'] * 10 / 8)
+    # Tag plane sits on the body top, below the LiDAR filter height.
+    assert ground_robot.tag_height(robot) == pytest.approx(robot['body']['height'] + 0.002)
+    assert ground_robot.tag_height(robot) < 0.3
+    rows = yaml.safe_load(Path(bridge_config(['uav1'], 'w', tmp_path / 'b.yaml', robot=True)).read_text())
+    by_ros = {r['ros_topic_name']: r for r in rows}
+    assert by_ros['/target/ground_truth']['gz_topic_name'] == ground_robot.POSE_TOPIC
+    assert by_ros[ground_robot.CMD_TOPIC]['direction'] == 'ROS_TO_GZ'
+
+
+def test_drone_config_is_both_fleet_and_controller_settings():
+    from solo_mpc.settings import load_settings
+
+    fleet = load_config(ROOT / 'config/drone.yaml')
+    assert [u['name'] for u in fleet['uavs']] == ['uav1']
+    _, settings, cfg = load_settings(ROOT / 'ros_ws/src/solo_mpc/scenarios/square50_1uav.yaml',
+                                     ROOT / 'config/drone.yaml')
+    assert settings['target_mode'] == 'camera' and settings['ground_robot']['tag']['family'] == 'tag36h11'
+    assert settings['sitl_params']['ANGLE_MAX'] == 2000 and cfg['VMAX'] <= 0.7
+    env = dict(line.split('=', 1) for line in (ROOT / '.env').read_text().splitlines()
+               if line and not line.startswith('#'))
+    assert env['FLEET_CONFIG'] == env['MPC_SETTINGS'] == '/workspace/config/drone.yaml'
 
 
 def test_rejects_mismatched_start_and_controller_altitudes(tmp_path):
@@ -207,7 +266,7 @@ def test_solo_lidar_keeps_every_ray_at_commanded_acceleration():
 
     pkg = ROOT / 'ros_ws/src/solo_mpc'
     scenario, settings, cfg = load_settings(pkg / 'scenarios/square50_1uav.yaml',
-                                            pkg / 'config/controller_solo.yaml')
+                                            pkg.parents[2] / 'config/drone.yaml')
     assert scenario['starts'][0][2] == settings['flight_altitude'] == 2.0
     assert 0.5 <= cfg['VMAX'] <= 0.7
     # Commanded acceleration lean, and a 15 degree gust tilt a real Solo sees.

@@ -3,9 +3,9 @@
 # 1 m boxes, extruded to the controller's obstacle_height. Layout generated once
 # with a fixed seed: at least 2.5 m between obstacles, 5 m clear of start and
 # target. The UAV crosses the field from one end to the target at the other.
-# Run: ./scripts/dev mpc --fleet /workspace/config/fleet_1uav.yaml \
+# Run: ./scripts/dev mpc --fleet /workspace/config/drone.yaml \
 #        --scenario /workspace/ros_ws/src/solo_mpc/scenarios/soccer_1uav.yaml \
-#        --settings /workspace/ros_ws/src/solo_mpc/config/controller_solo.yaml
+#        --settings /workspace/config/drone.yaml
 description: single UAV to a fixed target across a 105 x 68 m field of small obstacles
 world_name: mpc_soccer
 xlim: [0, 105]

@@ -1,0 +1,27 @@
+# Ground robot carrying an AprilTag: the UAV's tracking target.
+# Selected by `ground_robot:` in drone.yaml. Body, tag and spawn changes need a
+# new simulation; teleop values are read each time `./scripts/dev drive` starts.
+
+# [x, y, yaw_degrees] in world metres. The UAV camera must see the tag before
+# MPC starts, so keep it within ~1.5 m of the UAV start (scenario starts).
+spawn: [2.5, 1.5, 0]
+
+body:                 # box moved by Gazebo VelocityControl (no wheel slip)
+  length: 0.5         # m, along the robot's forward (x) axis
+  width: 0.4          # m
+  height: 0.25        # m; the tag lies on top
+  mass: 8.0           # kg
+
+tag:
+  family: tag36h11    # standard AprilTag family; print the same tag for hardware
+  id: 0
+  size: 0.30          # m, edge of the black square; a white margin of size/8 surrounds it
+
+teleop:               # keyboard drive limits (./scripts/dev drive)
+  max_linear: 0.5     # m/s; below the UAV VMAX so it can keep up
+  max_angular: 1.0    # rad/s
+  linear_step: 0.05   # m/s added per key press
+  angular_step: 0.1   # rad/s added per key press
+  linear_accel: 0.5   # m/s^2 ramp toward the requested speed
+  angular_accel: 2.0  # rad/s^2
+  rate: 20            # Hz command stream

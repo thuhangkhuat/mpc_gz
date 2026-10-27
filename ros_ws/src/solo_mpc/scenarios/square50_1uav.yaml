@@ -6,9 +6,9 @@
 # 1 m boxes, extruded to the controller's obstacle_height. 40 obstacles spread
 # evenly: one per cell of a 7 x 6 grid (about 7.1 x 8.3 m cells), jittered by up
 # to 1.2 m with a fixed seed; the start and target corner cells are left empty.
-# Run: ./scripts/dev mpc --fleet /workspace/config/fleet_1uav.yaml \
+# Run: ./scripts/dev mpc --fleet /workspace/config/drone.yaml \
 #        --scenario /workspace/ros_ws/src/solo_mpc/scenarios/square50_1uav.yaml \
-#        --settings /workspace/ros_ws/src/solo_mpc/config/controller_solo.yaml
+#        --settings /workspace/config/drone.yaml
 description: single UAV from (1, 1) to a fixed target on a 50 x 50 m map of evenly spread small obstacles
 world_name: mpc_square50
 xlim: [0, 50]

@@ -2,6 +2,9 @@
 
 A pose on /target/goal or RViz /goal_pose replaces the route with a fixed
 position until the simulation stops; an RViz /clicked_point spawns a pole.
+With a ground_robot configured the robot is the target: Gazebo publishes its
+pose (bridged), this node only serves mission requests, and a goal pose
+teleports the robot instead.
 """
 
 import threading
@@ -14,7 +17,7 @@ from gz.transport13 import Node as GazeboNode
 from rclpy.node import Node
 from std_srvs.srv import SetBool, Trigger
 
-from . import scene_edit
+from . import ground_robot, scene_edit
 from .core.target_motion import target_route
 from .ros_utils import pose_message, run_node
 
@@ -32,10 +35,12 @@ class MovingTarget(Node):
         for topic in ("/target/goal", "/goal_pose"):
             self.create_subscription(PoseStamped, topic, self.set_goal, 10)
         self.create_subscription(PointStamped, "/clicked_point", self.add_pole, 10)
-        self.publisher = self.create_publisher(PoseStamped, "/target/ground_truth", 10)
+        self.robot = args.settings_data.get("ground_robot")
         self.create_service(SetBool, "/target/run", self.set_running)
         self.create_service(Trigger, "/target/reset", self.reset)
-        self.create_timer(0.05, self.tick)
+        if self.robot is None:
+            self.publisher = self.create_publisher(PoseStamped, "/target/ground_truth", 10)
+            self.create_timer(0.05, self.tick)
 
     def now(self):
         return self.get_clock().now().nanoseconds * 1e-9
@@ -69,10 +74,28 @@ class MovingTarget(Node):
 
     def set_goal(self, msg):
         x, y = msg.pose.position.x, msg.pose.position.y
-        if self._in_bounds(msg, x, y, "Target goal"):
+        if not self._in_bounds(msg, x, y, "Target goal"):
+            return
+        if self.robot is None:
             # Survives /target/reset, which each mission start calls.
             self.goal = np.array([x, y])
             self.get_logger().info(f"Target fixed at ({x:.2f}, {y:.2f})")
+            return
+        q = msg.pose.orientation
+        request = Pose()
+        request.name = ground_robot.MODEL
+        request.position.x, request.position.y = float(x), float(y)
+        if q.x or q.y or q.z or q.w:
+            request.orientation.x, request.orientation.y = q.x, q.y
+            request.orientation.z, request.orientation.w = q.z, q.w
+        else:
+            request.orientation.w = 1.0
+        ok, response = self.gz.request(
+            f"/world/{self.args.world}/set_pose", request, Pose, Boolean, 1000)
+        if ok and response.data:
+            self.get_logger().info(f"Ground robot moved to ({x:.2f}, {y:.2f})")
+        else:
+            self.get_logger().error("Gazebo did not move the ground robot")
 
     def add_pole(self, msg):
         x, y = msg.point.x, msg.point.y

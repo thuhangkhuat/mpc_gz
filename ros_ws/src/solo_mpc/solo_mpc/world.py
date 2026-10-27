@@ -8,6 +8,7 @@ from pathlib import Path
 import yaml
 from solo_bringup.world import generate_world
 
+from . import ground_robot
 from .settings import load_settings
 from .scene_view import (
     OVERHEAD_FPS, OVERHEAD_HEIGHT, OVERHEAD_TOPIC, OVERHEAD_WIDTH, follow_offset,
@@ -228,15 +229,21 @@ def generate_mpc_world(fleet, source, destination, scenario_path, settings_path,
             [r, height],
             "0.15 0.35 0.65 1",
         )
-    first = scenario["target"]["waypoints"][0]
-    target = solid(
-        world,
-        "tracking_target",
-        [first[0], first[1], settings["target_height"]],
-        "box",
-        [2 * cfg.get("TAR_RADIUS", 0.15), 2 * cfg.get("TAR_RADIUS", 0.15), 0.04],
-        "1 0 1 1",
-    )
+    robot = settings.get("ground_robot")
+    if robot is not None:
+        # The AprilTag robot replaces the scripted magenta marker as the target.
+        texture = ground_robot.write_tag_texture(robot, Path(destination).parent)
+        target = ground_robot.add_model(world, robot, texture, element)
+    else:
+        first = scenario["target"]["waypoints"][0]
+        target = solid(
+            world,
+            "tracking_target",
+            [first[0], first[1], settings["target_height"]],
+            "box",
+            [2 * cfg.get("TAR_RADIUS", 0.15), 2 * cfg.get("TAR_RADIUS", 0.15), 0.04],
+            "1 0 1 1",
+        )
     if record_overhead:
         overhead_camera(target, settings)
     for uav in fleet["uavs"]:
@@ -247,7 +254,8 @@ def generate_mpc_world(fleet, source, destination, scenario_path, settings_path,
     return output, fleet
 
 
-def bridge_config(names, world, destination, record_overhead=False, *, camera_enabled=True):
+def bridge_config(names, world, destination, record_overhead=False, *, camera_enabled=True,
+                  robot=False):
     rows = [
         dict(
             ros_topic_name="/clock",
@@ -275,6 +283,16 @@ def bridge_config(names, world, destination, record_overhead=False, *, camera_en
                     direction="GZ_TO_ROS",
                 )
             )
+    if robot:
+        rows += [
+            # Exact robot pose replaces the scripted target's ground truth.
+            dict(ros_topic_name="/target/ground_truth", gz_topic_name=ground_robot.POSE_TOPIC,
+                 ros_type_name="geometry_msgs/msg/PoseStamped", gz_type_name="gz.msgs.Pose",
+                 direction="GZ_TO_ROS"),
+            dict(ros_topic_name=ground_robot.CMD_TOPIC, gz_topic_name=ground_robot.CMD_TOPIC,
+                 ros_type_name="geometry_msgs/msg/Twist", gz_type_name="gz.msgs.Twist",
+                 direction="ROS_TO_GZ"),
+        ]
     if record_overhead:
         rows.append(dict(
             ros_topic_name=OVERHEAD_TOPIC,

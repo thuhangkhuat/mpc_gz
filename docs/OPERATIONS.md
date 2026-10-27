@@ -157,7 +157,7 @@ Change the target, UAV position and obstacles without restarting Gazebo:
 In RViz, **2D Goal Pose** fixes the target at the clicked point and **Publish
 Point** adds a 0.15 m pole. A fixed target replaces the scenario route until the
 simulation stops; mission starts keep it. With `arrival_completes_mission: false`
-(set in `controller_solo.yaml`) the mission keeps following the target until
+(set in `drone.yaml`) the mission keeps following the target until
 `./scripts/dev mission stop`, which lands where the UAV is; the next
 `mission run` takes off from there. UAVs are never teleported: moving an armed
 or landed ArduPilot vehicle in Gazebo invalidates its estimator and the frozen

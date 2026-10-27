@@ -69,9 +69,8 @@ def test_single_waypoint_is_a_fixed_target():
                                             ('square50_1uav', [0, 50], [0, 50])])
 def test_single_uav_scenario_crosses_field_to_fixed_target(name, xlim, ylim):
     scenario, settings, cfg = load_settings(PKG / f'scenarios/{name}.yaml',
-                                            PKG / 'config/controller_solo.yaml')
+                                            PKG.parents[2] / 'config/drone.yaml')
     assert (scenario['xlim'], scenario['ylim']) == (xlim, ylim)
-    assert settings['target_mode'] == 'ground_truth'
     start = np.asarray(scenario['starts'][0][:2])
     goal = np.asarray(scenario['target']['waypoints'][0])
     distance = np.linalg.norm(goal - start)
