@@ -81,5 +81,5 @@ params:
     ipopt.print_level: 0
     ipopt.tol: 0.0001
     ipopt.acceptable_tol: 0.01
-    ipopt.acceptable_iter: 15
+    ipopt.acceptable_iter: 5  # stop after 5 acceptable iterates, not 15: real-time MPC needs the answer now
     print_time: 0

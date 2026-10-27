@@ -73,3 +73,16 @@ def test_counts_backing_away_from_target(tmp_path):
     assert vehicle["backing_after"] == {"nominal solve": 1}
     assert vehicle["over_vmax_fraction"] == 3 / 200
     assert abs(vehicle["command_tracking_error_mps"] - 0.3) < 1e-9
+
+
+def test_backing_after_path_flip_is_attributed(tmp_path):
+    write_run(tmp_path)
+    rows = [json.loads(l) for l in (tmp_path / "mpc.jsonl").read_text().splitlines()]
+    for k, row in enumerate(rows):
+        row["vehicles"]["uav1"]["path_heading"] = 0.0 if k < 18 else 3.0  # flips at 1.8 s
+    for row in rows[20:25]:
+        row["vehicles"]["uav1"]["velocity"] = [-0.4, 0.0, 0.0]
+    (tmp_path / "mpc.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+    vehicle = analyze_run.analyze(tmp_path)["vehicles"]["uav1"]
+    assert vehicle["path_flips"] == 1
+    assert vehicle["backing_after"] == {"path flip": 1}

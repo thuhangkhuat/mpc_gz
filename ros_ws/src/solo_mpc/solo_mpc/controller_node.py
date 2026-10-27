@@ -17,6 +17,7 @@ from builtin_interfaces.msg import Duration
 from visualization_msgs.msg import Marker, MarkerArray
 
 from .core.controller import VehicleState
+from .core.coordination import path_carrot
 from .core.geometry import halfspace_polygon
 from .core.cycles import CycleRunner, result_is_current, stopping_result_matches
 from .core.parallel_controller import ParallelTeamController
@@ -309,6 +310,16 @@ class Controller(Node):
                 return
         self._publish_cycle(start, now, stamp, reason, results)
 
+    @staticmethod
+    def _path_heading(out, position):
+        """Bearing to the grid path 1 m ahead; flips expose left/right replanning."""
+        path = out.get("path")
+        if path is None or len(path) < 2:
+            return None
+        carrot = path_carrot(position, path, 1.0)
+        delta = (np.asarray(path)[-1, :2] if carrot is None else carrot) - position[:2]
+        return None if np.linalg.norm(delta) < 1e-6 else float(np.arctan2(delta[1], delta[0]))
+
     def _target_yaw(self, n):
         """World yaw facing the target estimate, or None when yaw is not commanded.
 
@@ -429,6 +440,7 @@ class Controller(Node):
                     "solver_ms": results.get(n, {}).get("solver_ms"),
                     "command_velocity": (None if results.get(n, {}).get("velocity") is None
                                          else np.asarray(results[n]["velocity"]).tolist()),
+                    "path_heading": self._path_heading(results.get(n, {}), p),
                     **{
                         key: results.get(n, {}).get(key)
                         for key in (

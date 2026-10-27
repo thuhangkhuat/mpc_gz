@@ -91,6 +91,18 @@ def analyze(run):
         sp_rows, sp_time = setpoint_time(transitions, name, end)
         target = [r.get("target_estimate") for _, _, r in rows]
         statuses = Counter(v["solver_status"] for _, v, _ in rows if v.get("solver_status"))
+        iterations = [v["solver_iterations"] for _, v, _ in rows if v.get("solver_iterations") is not None]
+        # Grid-path bearing turning > 90 deg within 1 s: the planner switched sides.
+        headings = [(t, v["path_heading"]) for t, v, _ in rows if v.get("path_heading") is not None]
+        flips = []
+        for k, (t, h) in enumerate(headings):
+            for t0, h0 in reversed(headings[max(0, k - 20):k]):
+                if t - t0 > 1.0:
+                    break
+                if abs(math.remainder(h - h0, 2 * math.pi)) > math.pi / 2:
+                    if not flips or t - flips[-1] > 1.0:
+                        flips.append(t)
+                    break
         command = [(np.linalg.norm(v["command_velocity"][:2]), s) for (_, v, _), s
                    in zip(rows, speed) if v.get("command_velocity") is not None]
         # Velocity component toward the target while still away from it.
@@ -110,7 +122,9 @@ def analyze(run):
                     window = [rows[k][1]["result"] for k in range(len(rows))
                               if stamps[begin] - 1.0 <= stamps[k] <= stamps[begin]]
                     failed = [r for r in window if r not in ("search", "tracking")]
-                    backing_causes[failed[0] if failed else "nominal solve"] += 1
+                    flipped = any(stamps[begin] - 1.0 <= f <= stamps[begin] + 0.2 for f in flips)
+                    backing_causes[failed[0] if failed else
+                                   "path flip" if flipped else "nominal solve"] += 1
                 begin = None
 
         stops, start = [], None
@@ -152,6 +166,9 @@ def analyze(run):
             "backing_starts_s": backing[:50],
             "backing_after": dict(backing_causes.most_common()),
             "solver_status": dict(statuses.most_common()),
+            "solver_iterations": {"p50": percentile(iterations, 50), "p95": percentile(iterations, 95),
+                                  "max": max(iterations, default=None)},
+            "path_flips": len(flips),
             "stops_away_from_target": stops,
             "min_body_clearance_m": min((c for _, c in body), default=None),
             "body_contact_samples": sum(c <= 0 for _, c in body),
@@ -190,6 +207,10 @@ def show(report):
         print("controller results:", ", ".join(f"{k} {n}" for k, n in v["controller_results"].items()))
         if v["solver_status"]:
             print("solver status:", ", ".join(f"{k} {n}" for k, n in v["solver_status"].items()))
+        it = v["solver_iterations"]
+        if it["p50"] is not None:
+            print(f"solver iterations: p50 {it['p50']:.0f}, p95 {it['p95']:.0f}, max {it['max']}")
+        print(f"grid path flips (> 90 deg within 1 s): {v['path_flips']}")
         if v["setpoint_time_s"]:
             print("setpoint time (s):", ", ".join(f"{k} {t}" for k, t in v["setpoint_time_s"].items()))
         else:
