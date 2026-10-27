@@ -58,7 +58,10 @@ def pose_message(position, stamp, quaternion=(0.0, 0.0, 0.0, 1.0), frame="world"
 
 
 def run_node(node_class, description):
+    import signal
+
     import rclpy
+    from rclpy.executors import ExternalShutdownException
 
     args, ros = arguments(description)
     rclpy.init(args=ros)
@@ -76,14 +79,20 @@ def run_node(node_class, description):
             progress.update('initialized', 'ROS node initialized; waiting for mission inputs')
         node.get_logger().info(f'{node.get_name()}: initialized; waiting for mission inputs')
         rclpy.spin(node)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, ExternalShutdownException):
         pass
     except BaseException as error:
         if progress:
             progress.update('failed', f'{type(error).__name__}: {error}')
         raise
     finally:
-        if node is not None:
-            node.destroy_node()
-        if rclpy.ok():
-            rclpy.shutdown()
+        # Launch may forward SIGINT after the terminal already delivered it.
+        # Finish bounded worker shutdown before accepting another interrupt.
+        previous_sigint = signal.signal(signal.SIGINT, signal.SIG_IGN)
+        try:
+            if node is not None:
+                node.destroy_node()
+            if rclpy.ok():
+                rclpy.shutdown()
+        finally:
+            signal.signal(signal.SIGINT, previous_sigint)

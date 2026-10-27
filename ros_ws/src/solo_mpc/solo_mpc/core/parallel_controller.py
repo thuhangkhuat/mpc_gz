@@ -10,6 +10,7 @@ import math
 import multiprocessing as mp
 from multiprocessing.connection import wait
 import os
+import signal
 import time
 import threading
 from types import SimpleNamespace
@@ -39,6 +40,9 @@ class MapSnapshot:
 
 def vehicle_worker(connection, name, names, cfg):
     """Process entry point; the fleet name list retains all neighbor constraints."""
+    # The ROS process owns shutdown. A terminal SIGINT must not interrupt
+    # a native solve or the pipe receive before its owner sends stop/terminate.
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
     try:
         controller = TeamController(names, cfg, local_names=[name])
         grid = controller.planners[name].gmap

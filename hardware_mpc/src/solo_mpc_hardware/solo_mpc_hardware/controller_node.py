@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 
 import numpy as np
-from geometry_msgs.msg import PoseStamped, TwistStamped
+from geometry_msgs.msg import Point, PoseStamped, TwistStamped
 from mavros_msgs.msg import PositionTarget, State
 from nav_msgs.msg import Path as RosPath
 from rclpy.node import Node
@@ -14,9 +14,12 @@ from sensor_msgs.msg import LaserScan
 from std_msgs.msg import String
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from builtin_interfaces.msg import Duration
+from visualization_msgs.msg import Marker, MarkerArray
 
 from .core.controller import VehicleState
-from .core.cycles import CycleRunner, result_is_current, stopping_result_matches
+from .core.coordination import path_carrot
+from .core.geometry import halfspace_polygon
+from .core.cycles import CycleRunner, result_is_current, stopping_mismatch
 from .core.parallel_controller import ParallelTeamController
 from .core.sensors import PoseHistory, project_scan
 from .core.tracking import ExactTargetTracker
@@ -48,6 +51,8 @@ class Controller(Node):
         self.subscriptions_keep = []
         self.outputs = {}
         self.trajectories = {}
+        self.visuals = {}
+        self.yaw_hold = {}
         self.status_pub = self.create_publisher(String, "/mpc/status", 10)
         self.log = None
         if args.run_dir:
@@ -71,6 +76,11 @@ class Controller(Node):
             self.outputs[n] = (
                 self.create_publisher(PositionTarget, f"/{n}/mpc/reference", 10),
                 self.create_publisher(RosPath, f"/{n}/mpc/prediction", 10),
+            )
+            # RViz only: hard corridor polygon and the grid path that seeds it.
+            self.visuals[n] = (
+                self.create_publisher(MarkerArray, f"/{n}/mpc/corridor", 10),
+                self.create_publisher(RosPath, f"/{n}/mpc/path", 10),
             )
             subscriptions = [
                 (PoseStamped, "mpc/pose", self.pose),
@@ -202,8 +212,9 @@ class Controller(Node):
                     p, q, at = self.poses[n]
                     v, vt = self.velocities[n]
                     measured = VehicleState(p, v, self.accelerations.get(n, np.zeros(3)), q, at)
-                    if not stopping_result_matches(measured, out, stamp, self.args.cfg, velocity_stamp=vt):
-                        results[n] = dict(out, ok=False, reason='stop_plan_measured_state_changed')
+                    mismatch = stopping_mismatch(measured, out, stamp, self.args.cfg, velocity_stamp=vt)
+                    if mismatch:
+                        results[n] = dict(out, ok=False, reason=f'stop_plan_measured_state_changed: {mismatch}')
                         reason = 'partial_solver_failure'
             self._publish_cycle(start, now, stamp, reason, results)
             if reason != 'ready':
@@ -300,10 +311,66 @@ class Controller(Node):
                 return
         self._publish_cycle(start, now, stamp, reason, results)
 
+    @staticmethod
+    def _path_heading(out, position):
+        """Bearing to the grid path 1 m ahead; flips expose left/right replanning."""
+        path = out.get("path")
+        if path is None or len(path) < 2:
+            return None
+        carrot = path_carrot(position, path, 1.0)
+        delta = (np.asarray(path)[-1, :2] if carrot is None else carrot) - position[:2]
+        return None if np.linalg.norm(delta) < 1e-6 else float(np.arctan2(delta[1], delta[0]))
+
+    def _target_yaw(self, n):
+        """World yaw facing the target estimate, or None when yaw is not commanded.
+
+        Within viewing_radius the last heading is held: the bearing to a target
+        directly below the vehicle is noise and would spin it in place.
+        """
+        if self.args.settings_data.get("yaw_mode", "none") != "target":
+            return None
+        estimate = self.team.track.x
+        if estimate is not None and n in self.poses:
+            delta = np.asarray(estimate[:2]) - self.poses[n][0][:2]
+            if np.linalg.norm(delta) > self.args.cfg["VIEWING_RADIUS"]:
+                self.yaw_hold[n] = float(np.arctan2(delta[1], delta[0]))
+        return self.yaw_hold.get(n)
+
+    def _publish_visuals(self, n, out, now):
+        altitude = self.args.settings_data["flight_altitude"]
+        corridor = out.get("corridor")
+        polygon = halfspace_polygon(*corridor) if corridor is not None else np.empty((0, 2))
+        markers = MarkerArray()
+        if len(polygon) < 3:
+            markers.markers.append(Marker(action=Marker.DELETEALL))
+        else:
+            corners = [Point(x=float(x), y=float(y), z=float(altitude)) for x, y in polygon]
+            outline = Marker(ns="corridor", id=0, type=Marker.LINE_STRIP, action=Marker.ADD)
+            outline.points = corners + corners[:1]
+            outline.scale.x = 0.05
+            fill = Marker(ns="corridor_fill", id=1, type=Marker.TRIANGLE_LIST, action=Marker.ADD)
+            for a, b in zip(corners[1:-1], corners[2:]):
+                fill.points.extend([corners[0], a, b])
+            fill.scale.x = fill.scale.y = fill.scale.z = 1.0
+            for marker, alpha in ((outline, 1.0), (fill, 0.2)):
+                marker.header.frame_id = "world"
+                marker.header.stamp = now.to_msg()
+                marker.pose.orientation.w = 1.0
+                marker.color.r, marker.color.g, marker.color.b, marker.color.a = 0.0, 0.8, 1.0, alpha
+                markers.markers.append(marker)
+        self.visuals[n][0].publish(markers)
+        if out.get("path") is not None:
+            path = RosPath()
+            path.header.frame_id = "world"
+            path.header.stamp = now.to_msg()
+            path.poses = [pose_message([x, y, altitude], now.to_msg()) for x, y in out["path"]]
+            self.visuals[n][1].publish(path)
+
     def _publish_cycle(self, start, now, stamp, reason, results):
         settings = self.args.settings_data
         # A completed solve may already be obsolete. Publisher checks age too.
         for n, out in results.items():
+            self._publish_visuals(n, out, now)
             if not out["ok"]:
                 continue
             msg = PositionTarget()
@@ -311,6 +378,10 @@ class Controller(Node):
             msg.header.frame_id = "world"
             msg.coordinate_frame = PositionTarget.FRAME_LOCAL_NED
             msg.type_mask = PositionTarget.IGNORE_YAW | PositionTarget.IGNORE_YAW_RATE
+            yaw = self._target_yaw(n)
+            if yaw is not None:
+                msg.yaw = yaw
+                msg.type_mask = PositionTarget.IGNORE_YAW_RATE
             msg.position.x, msg.position.y = map(float, out["position"])
             msg.position.z = settings["flight_altitude"]
             msg.velocity.x, msg.velocity.y = map(float, out["velocity"])
@@ -368,6 +439,9 @@ class Controller(Node):
                     "nominal_ok": results.get(n, {}).get("nominal_ok", False),
                     "solver_status": results.get(n, {}).get("solver_status"),
                     "solver_ms": results.get(n, {}).get("solver_ms"),
+                    "command_velocity": (None if results.get(n, {}).get("velocity") is None
+                                         else np.asarray(results[n]["velocity"]).tolist()),
+                    "path_heading": self._path_heading(results.get(n, {}), p),
                     **{
                         key: results.get(n, {}).get(key)
                         for key in (
@@ -375,6 +449,7 @@ class Controller(Node):
                             "solver_iterations", "planning_and_solve_ms",
                             "map_started_wall", "map_finished_wall",
                             "solve_started_wall", "solve_finished_wall", "corridor_faces",
+                            "corridor_used_faces",
                         )
                     },
                     "armed": bool(n in self.fcu and self.fcu[n].armed),

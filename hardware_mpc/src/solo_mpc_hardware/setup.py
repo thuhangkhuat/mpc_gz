@@ -22,5 +22,6 @@ setup(
     entry_points={'console_scripts': [
         'controller = solo_mpc_hardware.controller_node:main',
         'marker_detector = solo_mpc_hardware.perception_node:main',
+        'bench_solver = solo_mpc_hardware.bench_solver:main',
     ]},
 )

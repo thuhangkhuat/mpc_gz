@@ -8,6 +8,10 @@ from .geometry import catmull_rom
 def target_route(scenario, cfg):
     target = scenario["target"]
     points = np.asarray(target["waypoints"], float)
+    if (len(points) == 1 and points.shape == (1, 2) and np.isfinite(points).all()
+            and "speeds" not in target):
+        # A single waypoint is a stationary target, already at its goal.
+        return np.vstack([points, points]), np.zeros(2)
     if (points.ndim != 2 or points.shape[1] != 2 or len(points) < 2
             or not np.isfinite(points).all()
             or np.any(np.linalg.norm(np.diff(points, axis=0), axis=1) <= 0)):

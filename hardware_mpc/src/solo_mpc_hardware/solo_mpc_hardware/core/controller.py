@@ -259,9 +259,14 @@ class TeamController(FleetGuidance):
         controls = np.vstack([controls, np.zeros((H - len(controls), 2))])
         self.predictions[name] = rows.copy()
         self.prediction_stamps[name] = stamp
+        # Seed the next solve from the verified stop branch, shifted one step like
+        # a nominal warm start. A cold start after a failure timed out again in
+        # 45% of cases; the failed iterate itself is still never reused.
+        self.warm[name] = (np.vstack([rows[1:], rows[-1:]]), np.vstack([controls[1:], controls[-1:]]))
         return {"ok": True, "nominal_ok": False, "position": rows[1, :2].copy(),
                 "velocity": rows[1, 2:4].copy(), "acceleration": control.copy(),
                 "prediction": rows.copy(), "controls": controls,
+                "corridor": self.active_corridors.get(name),
                 "reason": f"stop_plan: {reason}", **metrics}
 
     def integrate_scans(self, scans):
@@ -318,6 +323,7 @@ class TeamController(FleetGuidance):
         except Exception as exc:
             return self._fallback(n, state, stamp, f"corridor_failed: {exc}", **metrics)
         metrics["corridor_ms"] = (time.perf_counter() - started) * 1000
+        metrics["corridor_used_faces"] = faces
         x0 = np.r_[state.position[:2], state.velocity[:2], state.acceleration[:2]]
         X, U = self.warm.get(n, (np.tile(x0, (H + 1, 1)), np.zeros((H, 2))))
         others = [k for k in self.names if k != n]
@@ -377,5 +383,8 @@ class TeamController(FleetGuidance):
             "controller_mode": guidance["mode"],
             "solver_status": solver_status,
             "solver_ms": solver_ms,
+            # Visualization only: hard corridor A x <= b and the grid path it seeds from.
+            "corridor": (A.copy(), b.copy()),
+            "path": np.asarray(path, float)[:, :2].copy(),
             **metrics,
         }

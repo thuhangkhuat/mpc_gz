@@ -1,19 +1,20 @@
 # Solo MPC node for hardware integration
 
 A self-contained ROS 2 workspace containing the MPC trajectory generator and an
-optional magenta-marker detector. The intended integration is Raspberry Pi 4,
-3DR Solo / ArduCopter 4.5.3, LD19 LiDAR and a calibrated camera.
+optional ground-target detector. The target platform is a Raspberry Pi 4 on a
+3DR Solo (3DR's ArduCopter 4.0.1) with an LD19 LiDAR and a C270 camera. The Solo
+is reached only through `solo_bridge` and the Solo's text relay
+(`~/mpc_ws/3DR/solo_ros`); nothing here speaks MAVLink or runs MAVROS.
 
 The ROS and Python package name is **`solo_mpc_hardware`**. This folder can be
 committed in the simulation repository or copied into a separate GitHub
 repository without any files from its parent directory. Gazebo, SITL and the
 original `solo_mpc` and `solo_bringup` packages are not runtime dependencies.
 
-The package produces trajectories; hardware localization, sensor drivers,
-calibrated mounts, MAVROS connection, flight-command publishing and flight
-supervision must be integrated separately. Start with the
-[hardware integration guide](docs/HARDWARE_INTEGRATION.md), which specifies the
-input/output topics and the remaining changes for the physical vehicle.
+The package produces trajectories. Adapters between the bridge's `/solo/*`
+topics and the controller (state, `/solo/cmd_vel` commands, supervision) are
+still to be written; the [hardware integration guide](docs/HARDWARE_INTEGRATION.md)
+lists the bridge's fixed limits and the topic mapping.
 
 ## Contents
 
@@ -30,7 +31,35 @@ PROVENANCE.json                        Origin and extraction changes
 LICENSE                                MIT license retained from upstream
 ```
 
-## Install on the Pi
+## Keep in sync with the simulation
+
+The Python package is generated: never edit `src/solo_mpc_hardware/solo_mpc_hardware/`
+by hand. Change `ros_ws/src/solo_mpc` in the simulation repository, then run
+`python3 scripts/export_hardware.py` there. It copies every module reachable from
+the controller and detector verbatim and records hashes in `PROVENANCE.json`;
+the simulation test `tests/test_hardware_export.py` fails when this copy is stale.
+
+## On the Pi: inside the solo container (recommended)
+
+The MPC runs in the existing `solo` container of `~/mpc_ws/3DR/solo_ros`, next to
+`solo_bridge`, the LD19 and camera nodes. `scripts/export_hardware.py` (in the
+simulation repository) mirrors this package into `solo_ros/ros2_ws/src/` and the
+lock into `solo_ros/docker/`; the solo_ros Dockerfile installs the lock and
+builds the package with the others. Needs a 64-bit OS (`uname -m` = `aarch64`).
+
+```bash
+cd ~/mpc_ws/3DR/solo_ros && docker compose build && docker compose up -d
+docker exec -it solo bash
+ros2 launch solo_mpc_hardware controller.launch.py
+```
+
+[requirements/mpc-py310-aarch64.lock](requirements/mpc-py310-aarch64.lock)
+(Python 3.10, ARM64, hash-checked) has the same direct pins as the simulation,
+with wheels for everything except pycddlib (GMP) and pydecomp (Eigen, Boost.Geometry), which
+compile on the Pi. `ros2_ws/src` is mounted, so re-exporting and relaunching a
+node needs no rebuild; numba's compiled kernels persist in the `numba-cache` volume.
+
+## Native install on the Pi (alternative)
 
 Use **Ubuntu Server 24.04 ARM64, ROS 2 Jazzy and Python 3.12** as the baseline.
 Install ROS 2 first. Run the following from this folder, not the simulation
@@ -77,8 +106,8 @@ ros2 launch solo_mpc_hardware controller.launch.py
 ```
 
 The launch uses installed example configuration, starts only the controller by
-default and sets `use_sim_time=false`. It does not start drivers, connect MAVROS,
-arm or issue flight commands. It reports waiting states until measured inputs,
+default and sets `use_sim_time=false`. It does not start drivers, talk to the
+bridge, arm or issue flight commands. It reports waiting states until measured inputs,
 target observations and the connected/armed/GUIDED conditions are supplied.
 Use SITL or a recorded-data harness to exercise those conditions before flight.
 
@@ -143,12 +172,12 @@ the Pi; build/install its ARM64 dependencies on the target platform.
 
 ## Source and maintenance
 
-The initial controller, solver, planner, mapping and perception code was copied
-from `ros_ws/src/solo_mpc` in the parent project. `PROVENANCE.json` records the
-source commit and initial source hashes. The standalone wrapper removes the
-simulation startup hook and uses a distinct ROS/Python namespace. Interrupt
-handling lets the ROS process finish bounded worker cleanup on Ctrl+C. Changes here
-do not automatically update the simulation package, or vice versa.
+The Python package is exported verbatim from `ros_ws/src/solo_mpc` by the parent
+project's `scripts/export_hardware.py`; `PROVENANCE.json` records the source
+commit and the hash of every module. Only the ROS/Python package name differs.
+Startup hooks, worker interrupt ownership and bounded Ctrl+C cleanup live in the
+simulation sources themselves, so nothing is patched during export. Fix code in
+the simulation and re-export; local edits here are overwritten.
 
 Keep `LICENSE`, package `LICENSE-MPC` and `UPSTREAM.json` when redistributing.
 Hardware diagrams, firmware sources and dependency references are linked in the

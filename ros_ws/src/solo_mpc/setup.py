@@ -19,6 +19,7 @@ setup(
         'setpoints = solo_mpc.setpoint_node:main',
         'frames = solo_mpc.frame_node:main',
         'marker_detector = solo_mpc.perception_node:main',
+        'bench_solver = solo_mpc.bench_solver:main',
         'target = solo_mpc.target_node:main',
         'mission = solo_mpc.mission:main',
         'mission_supervisor = solo_mpc.mission_node:main',

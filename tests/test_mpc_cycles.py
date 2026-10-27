@@ -125,3 +125,30 @@ def test_fallback_mismatch_names_the_diverged_component(axis, delta, name):
     assert stopping_mismatch(measured, result, 0., cfg) is None
     getattr(measured, axis)[0] += delta
     assert stopping_mismatch(measured, result, 0., cfg) == name
+
+
+def test_bench_solver_times_recorded_captures(tmp_path, capsys):
+    pytest.importorskip('casadi')
+    pytest.importorskip('_pydecomp')
+    from solo_mpc.bench_solver import main
+    from solo_mpc.core.controller import TeamController, VehicleState
+    from solo_mpc.settings import load_settings
+    pkg = Path(__file__).resolve().parents[1] / 'ros_ws/src/solo_mpc'
+    _, _, cfg = load_settings(pkg / 'scenarios/dense50_1uav.yaml', Path(__file__).resolve().parents[1] / 'config/drone.yaml')
+    cfg.update(DIAGNOSTIC_DIR=str(tmp_path / 'optimizer-inputs'), DIAGNOSTIC_CAPTURE_CYCLES=4)
+    team = TeamController(['uav1'], cfg)
+    s = VehicleState(np.array([1., 1., 2.]), np.zeros(3), np.zeros(3), np.array([0., 0., 0., 1.]), 0.)
+    team.track.observe([3., 1.], 0.)
+    pred = team.neighbor_predictions({'uav1': s}, 0.)
+    guidance = team.prepare_guidance({'uav1': s}, pred, 0., {'uav1'})['uav1']
+    for k in range(3):
+        team.solve_vehicle('uav1', {'uav1': s}, pred, guidance, k * cfg['TIMESTEP'])
+    report = tmp_path / 'bench.json'
+    assert main([str(tmp_path / 'optimizer-inputs'), '--warmup', '1', '--repeat', '2',
+                 '--output', str(report)]) == 0
+    result = json.loads(report.read_text())
+    assert len(result['solves']) == 6
+    assert result['period_ms'] == pytest.approx(1000 * cfg['TIMESTEP'])
+    assert result['verdict'] in ('GOOD', 'BORDERLINE', 'TOO SLOW')
+    assert all(r['ms'] > 0 for r in result['solves'])
+    assert 'verdict:' in capsys.readouterr().out
