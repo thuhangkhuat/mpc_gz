@@ -1,6 +1,6 @@
 # Restart the mission after changing geometry, solver or dynamics parameters.
 # The original scenario is preserved; these overrides account for Iris physics.
-flight_altitude: 3.0
+flight_altitude: 2.0
 obstacle_height: 5.0
 target_height: 0.05
 camera_width: 160
@@ -41,10 +41,10 @@ params:
   INFLATE_MARGIN: 0.15
   UAV_SAFE_DISTANCE: 1.0
   COLLISION_AVOID_DISTANCE: 1.5
-  VMAX: 1.2
-  UMAX: 2.0
+  VMAX: 0.5
+  UMAX: 2.5
   ACCEL_TAU: 0.2
-  SENSING_RADIUS: 3.0
+  SENSING_RADIUS: 6.0
   LOCAL_SEARCH: jps  # uniform step costs; dijkstra applies UNKNOWN_COST
   CONTINGENCY: true
   BACKUP_HORIZON: 25  # backup ends at rest after 2.5 s
